@@ -30,13 +30,23 @@ class Expr:
     def parens(self):
         """
         Adds parentheses around the string representation of this expression
-        if it is not a literal.  Used in larger composit expressions' string
+        if it is not a literal.  Used in larger composite expressions' string
         representations.
         """
         if self.isSingleTerm:
             return str(self)
         else:
             return "("+str(self)+")"
+    
+    def traverse(self, func):
+        """
+        Performs a pre-order traversal of this `Expr` AST and applies `func`
+        to each node encountered along the way, replacing it with the
+        result returned by `func`.
+        
+        Note that this function modifies the AST on which it operates.
+        """
+        return func(self)
 
 class Lit(Expr):
     """PyRRHIC Literal Expression"""
@@ -49,6 +59,7 @@ class Lit(Expr):
         
     def __str__(self):
         return str(self.value)
+
 
 class Id(Expr):
     isSingleTerm = True
@@ -63,8 +74,14 @@ class BinExpr(Expr):
     def __init__(self, a, b):
         self.a = a
         self.b = b
+    
     def __str__(self):
         return self.a.parens() + " " + self.symbol + " " + self.b.parens()
+    
+    def traverse(self, func):
+        self.a = self.a.traverse(func)
+        self.b = self.b.traverse(func)
+        return func(self)
 
 class Add(BinExpr):
     symbol = "+"
@@ -82,6 +99,9 @@ class UnExpr(Expr):
         self.e = e
     def __str__(self):
         return self.symbol + self.e.parens()
+    def traverse(self, func):
+        self.e = self.e.traverse(func)
+        return func(self)
 
 class Invert(UnExpr):
     symbol = "~"
@@ -97,6 +117,9 @@ class SReg(Expr):
             return "Reg("+str(self.value)+", "+str(self.enable)+")"     
         else:
             return "Reg("+str(self.value)+")"
+    def traverse(self, func):
+        self.value = self.value.traverse(func)
+        return func(self)
  
 class Bits(Expr):
     def __init__(self, e, msb, lsb):
@@ -105,6 +128,9 @@ class Bits(Expr):
         self.lsb = lsb
     def __str__(self):
         return self.e.parens() + "[" + str(self.msb) + ":" + str(self.lsb) + "]"
+    def traverse(self, func):
+        self.e = self.e.traverse(func)
+        return func(self)
 
 class Cat(Expr):
     def __init__(self, *args):
@@ -114,6 +140,12 @@ class Cat(Expr):
         for s in self.exprs[1:]:
             res += ", " + str(s)
         return "Cat("+res+")"
+    def traverse(self, func):
+        newExprs = []
+        for e in self.exprs:
+            newExprs += [e.traverse(func)]
+        self.exprs = newExprs
+        return func(self)
 
 class Eq(BinExpr):
     symbol = "=="
@@ -142,3 +174,8 @@ class Mux(Expr):
         self.sel = sel
     def __str__(self):
         return "Mux(" + str(self.sel) + ", " + str(self.a) + ", " + str(self.b) + ")"        
+    def traverse(self, func):
+        self.sel = self.sel.traverse(func)
+        self.a = self.a.traverse(func)
+        self.b = self.b.traverse(func)
+        return func(self)
