@@ -1,7 +1,10 @@
 """
 The PyRRHIC Abstract Syntax Tree representation
 """
-        
+
+from expr import *
+from stmt import *  
+from type import * 
 import inspect
 
 class LineInfo:

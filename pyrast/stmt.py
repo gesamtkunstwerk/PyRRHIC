@@ -6,16 +6,16 @@ class Stmt:
     lineInfo = None
     
 class WireDec(Stmt):
-    def __init__(self, id, type):
-        self.id = id
+    def __init__(self, idt, type):
+        self.idt = idt
         self.type = type
     def __str__(self):
-        return "wire " + str(id) + " : " + str(type)
+        return "wire " + str(self.idt) + " : " + str(self.type)
 
 class RegDec(Stmt):
-    def __init__(self, id, type):
-        self.id = id
+    def __init__(self, idt, type):
+        self.idt = idt
         self.type = type
     def __str__(self):
-        return "reg " + str(id) + " : " + str(type)
+        return "reg " + str(self.idt) + " : " + str(self.type)
     

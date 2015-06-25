@@ -47,16 +47,15 @@ class Lit(Expr):
         self.value = value
         self.width = width
         self.signed = signed
-        self.lineInfo = LineInfo(2)
         
     def __str__(self):
         return str(self.value)
 
 class Id(Expr):
-    def __init__(self, id):
-        self.id = id
+    def __init__(self, idt):
+        self.idt = idt
     def __str__(self):
-        return str(id)
+        return str(self.idt)
 
 class BinExpr(Expr):
     exprType = Expr.BinExprType
