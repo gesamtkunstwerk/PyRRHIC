@@ -2,8 +2,6 @@
 
 class Expr:
     """PyRRHIC Expression AST"""
-    __isBuilderExpr__ = False
-    
     lineInfo = None
     
     # Set to true if no parentheses are needed around this expression
@@ -68,6 +66,8 @@ class Id(Expr):
         self.idt = idt
         
     def __str__(self):
+        return str(self.idt)
+    def __repr__(self):
         return str(self.idt)
 
 class BinExpr(Expr):

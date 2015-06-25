@@ -3,20 +3,18 @@ PyRRHIC Type System AST
 """
 
 class Type:
-    __isBuilderType__ = False
-
     def __asType__(self):
         return self
         
 class UInt(Type):
-    def __init__(self, width):
+    def __init__(self, width = None):
         self.width = width
 
     def __str__(self):
         return "UInt("+str(self.width)+")"
 
 class SInt(Type):
-    def __init__(self, width):
+    def __init__(self, width = None):
         self.width = width
         
 class Bundle(Type):

@@ -1,6 +1,8 @@
 from pyrast import *
 from builder import *
 
+BuilderContext.curContext = BuilderContext("BASE")
+
 a = Lit(1)
 b = Lit(10)
 c = SReg(Mux(a > b, a - b, a))[10:9]
@@ -19,5 +21,8 @@ class MyIO(BundleDec):
     def __init__(self, width):
         self.data = UInt(width)
 
-w = Wire("w", MyIO(10))
-print b
+w = Wire(MyIO(10))
+w = Wire(SInt(16))
+c = Connect(w, Lit(65534))
+print c
+print BuilderContext.curContext.renameMap()

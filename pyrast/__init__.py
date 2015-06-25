@@ -12,8 +12,9 @@ class LineInfo:
     Contains Python source file and line number information to associate
     with a PyRRHIC AST node.
     
-    Extracted using Python's [[inspect.currentframe]] routine
+    Extracted using Python's `inspect.currentframe` routine
     """
+    
     def __init__(self, frames = 2):
         """
         Constructs a `LineInfo` object from the current stack trace.
@@ -33,3 +34,9 @@ class LineInfo:
         self.line   = frameInfo[2]
         self.module = frameInfo[3]
         self.string = frameInfo[4]
+        
+    def assignedVar(self):
+        """
+        If this line is an assignment, return the name of the variable LValue.
+        """
+        return self.string[0].split("=")[0].strip()
