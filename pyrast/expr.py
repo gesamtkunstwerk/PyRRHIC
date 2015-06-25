@@ -2,12 +2,12 @@
 
 class Expr:
     """PyRRHIC Expression AST"""
+    __isBuilderExpr__ = False
+    
     lineInfo = None
     
-    # Kinds of expressinos that are available
-    BinExprType, UnExprType, LitType, GenericType = range(4)
-    
-    exprType = GenericType
+    # Set to true if no parentheses are needed around this expression
+    isSingleTerm = False
     
     def __add__(self, other):
         return Add(self, other)
@@ -33,15 +33,14 @@ class Expr:
         if it is not a literal.  Used in larger composit expressions' string
         representations.
         """
-        if self.exprType == Expr.LitType:
+        if self.isSingleTerm:
             return str(self)
         else:
             return "("+str(self)+")"
 
 class Lit(Expr):
     """PyRRHIC Literal Expression"""
-    
-    exprType = Expr.LitType
+    isSingleTerm = True
     
     def __init__(self, value, width = None, signed = False):
         self.value = value
@@ -52,14 +51,15 @@ class Lit(Expr):
         return str(self.value)
 
 class Id(Expr):
+    isSingleTerm = True
+    
     def __init__(self, idt):
         self.idt = idt
+        
     def __str__(self):
         return str(self.idt)
 
 class BinExpr(Expr):
-    exprType = Expr.BinExprType
-    
     def __init__(self, a, b):
         self.a = a
         self.b = b
@@ -77,8 +77,7 @@ class Sub(BinExpr):
         BinExpr.__init__(self, a, b)
 
 class UnExpr(Expr):
-    exprType = Expr.UnExprType
-    
+    isSingleTerm = True
     def __init__(self, e):
         self.e = e
     def __str__(self):
@@ -89,7 +88,7 @@ class Invert(UnExpr):
     def __init__(self, e):
         UnExpr.__init__(self, e)
   
-class Reg(Expr):
+class SReg(Expr):
     def __init__(self, value, enable = None):
         self.value = value
         self.enable = enable

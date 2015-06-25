@@ -3,7 +3,7 @@ from builder import *
 
 a = Lit(1)
 b = Lit(10)
-c = Reg(Mux(a > b, a - b, a))[10:9]
+c = SReg(Mux(a > b, a - b, a))[10:9]
 print c
 
 w = WireDec(Id("W"), UInt(8))
@@ -19,5 +19,5 @@ class MyIO(BundleDec):
     def __init__(self, width):
         self.data = UInt(width)
 
-b = MyIO(10)
+w = Wire("w", MyIO(10))
 print b

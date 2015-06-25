@@ -3,16 +3,12 @@ PyRRHIC Type System AST
 """
 
 class Type:
-    UIntType, SIntType, BundleType, VecType, BuilderType, NoneType = range(6)
-
-    __kind__ = NoneType
+    __isBuilderType__ = False
 
     def __asType__(self):
         return self
         
 class UInt(Type):
-    kind = Type.UIntType
-    
     def __init__(self, width):
         self.width = width
 
@@ -20,14 +16,10 @@ class UInt(Type):
         return "UInt("+str(self.width)+")"
 
 class SInt(Type):
-    __kind__ = Type.SIntType
-    
     def __init__(self, width):
         self.width = width
         
 class Bundle(Type):
-    __kind__ = Type.BundleType
-    
     def __init__(self, fields):
         self.fields = fields
         self.width = 0
@@ -40,7 +32,7 @@ class Bundle(Type):
         for k in self.fields:
             fields[k] = self.fields[k].__asType__()
         return Bundle(fields)
-            
+  
 class Field:
     Default, Reverse = range(2)
     
@@ -53,8 +45,6 @@ class Field:
         return Field(orientation = self.orientation, name = self.name, type = self.type.__asType__())
     
 class Vec(Type):
-    __kind__ = Type.VecType
-    
     def __init__(self, type, count):
         self.type = type.__asType__()
         self.count = count
