@@ -1,5 +1,5 @@
 
-class Stmt:
+class Stmt(object):
     """
     PyRRHIC Statement AST Nodes
     """
@@ -14,11 +14,19 @@ class WireDec(Stmt):
         return "wire " + str(self.idt) + " : " + str(self.type)
 
 class RegDec(Stmt):
-    def __init__(self, idt, type):
+    def __init__(self, idt, type, onReset = None):
         self.idt = idt
         self.type = type
+        self.onReset = onReset
     def __str__(self):
-        return "reg " + str(self.idt) + " : " + str(self.type)
+        res = "reg " + str(self.idt) + " : " + str(self.type)
+        if self.onReset != None:
+            res += " [" + str(self.onReset)+ "]"
+        return res
+        
+class TypeDec(Stmt):
+    def __init__(self, bundle):
+        self.bundle = bundle
         
 class ConnectStmt(Stmt):
     def __init__(self, lval, rval):
