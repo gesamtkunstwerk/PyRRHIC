@@ -38,42 +38,6 @@ class BundleDec(BuilderType):
     def __init__(self):
         BuilderContext.curContext.updates += [BuilderTypeDec(self)]
 
-class BuilderExpr(Expr):
-    pass
-
-class BuilderId(BuilderExpr):
-    def __init__(self, type):
-        self.lineInfo = LineInfo(3)
-        self.idt = self.lineInfo.assignedVar()
-        self.type = type
-        self.curNode = BaseId(self)
-
-        # Add this Id as a declaration to the current builder context
-        self.n = BuilderContext.curContext.instanceCount
-        BuilderContext.curContext.instanceCount += 1
-        BuilderContext.curContext.updates += [BuilderDec(self)]
-
-class BaseId(BuilderExpr):
-    """
-    The value contained by a `BuilderId`'s `curNode` before anything
-    has been wired to it.
-    """
-    def __init__(self, idt):
-        self.idt = idt
-
-
-class Wire(BuilderId):
-    isReg = False
-    def __init__(self, type):
-        BuilderId.__init__(self, type)
-
-class Reg(BuilderId):
-    isReg = True
-
-    def __init__(self, type, onReset):
-        self.onReset = onReset
-        BuilderId.__init__(self, type)
-
 class BuilderStmt(Stmt):
     isDec = False
     def __init__(self):
@@ -92,6 +56,55 @@ class BuilderStmt(Stmt):
         Returns a lower-level PyRRHIC AST for this statment.
         """
         raise Error("Not implemented...")
+
+
+class BuilderExpr(Expr):
+    pass
+
+class BuilderId(BuilderExpr):
+    def __init__(self, name):
+        # Add this Id as a declaration to the current builder context
+        self.n = BuilderContext.curContext.instanceCount
+        BuilderContext.curContext.instanceCount += 1
+        self.name = name
+
+class BuilderDec(BuilderStmt):
+    def __init__(self, idt):
+        self.idt = idt
+        BuilderContext.curContext.updates += [BuilderDec(self)]
+
+
+class Wire(BuilderStmt):
+    isReg = False
+    def __init__(self, type, idt = None):
+        """
+        Represents a wire declaration.
+
+        Keyword arguments:
+        idt -- a `BuilderId` identifier to be linked with this wire.
+                By default, this is `None` and is added by the AST walk
+                before elaboration
+        btype -- A `BuilderType` argument
+        """
+        self.btype = type
+        self.idt = idt
+
+class Reg(BuilderStmt):
+    isReg = True
+
+    def __init__(self, type, onReset = None, idt = None):
+        """
+        Represents a register declaration.
+
+        Keyword arguments:
+        idt -- a `BuilderId` identifier to be linked with this wire.
+                By default, this is `None` and is added by the AST walk
+                before elaboration
+        btype -- A `BuilderType` argument
+        """
+        self.onReset = onReset
+        self.btype = type
+        self.idt = idt
 
 class BuilderDec(BuilderStmt):
     isDec = True
