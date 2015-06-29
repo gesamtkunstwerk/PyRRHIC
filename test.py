@@ -1,15 +1,18 @@
 from pyrast import *
 from builder.BuilderAST import *
+from builder import __module_end__, __module_begin__
 
-
+class TestModule(Module):
+    w = Wire(UInt(1))
 
 class ReadyValIO(BundleDec):
     ready = UInt(1)
     valid = Reverse(UInt(1))
 
 class MyIO(BundleDec):
-    rv = ReadyValIO()
+    print "in myio"
     def __init__(self, width):
+        self.rv = ReadyValIO()
         self.data = UInt(width)
 
 class SomeModule(Module):

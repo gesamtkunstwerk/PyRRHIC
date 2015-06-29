@@ -1,21 +1,20 @@
 from pyrast import *
 import inspect
 
+# Invariant: this should always contain a NEW context to into which the
+# the next module declaration dumps its updates, and then can rename and
+# add to the `allContexts` dictionary once it's done.
+curContext = None
+allContexts = {}
+
+BaseContextName = "__BASE_CONTEXT__"
+NewContextName = "__NEW_CONTEXT__"
+
+
 class BuilderContext(object):
     """
     Encapsulates all state pertaining an elaboration.
     """
-
-    # Invariant: this should always contain a NEW context to into which the
-    # the next module declaration dumps its updates, and then can rename and
-    # add to the `allContexts` dictionary once it's done.
-    curContext = None
-
-    allContexts = {}
-
-    BaseContextName = "__BASE_CONTEXT__"
-    NewContextName = "__NEW_CONTEXT__"
-
     def __init__(self, name = NewContextName):
         self.updates = []
         self.instanceCount = 0
@@ -69,13 +68,32 @@ class BuilderContext(object):
         return names
 
     def elaborateAll(self):
-        bc = self.allContexts[self.BaseContextName]
+        bc = allContexts[BaseContextName]
         stmts = []
         for u in bc.updates:
             print u
             stmts += [u.elaborate()]
         return stmts
 
-BuilderContext.curContext = BuilderContext(BuilderContext.NewContextName)
-BuilderContext.allContexts[BuilderContext.BaseContextName] = \
-    BuilderContext(BuilderContext.BaseContextName)
+curContext = BuilderContext(NewContextName)
+allContexts[BaseContextName] = BuilderContext(BaseContextName)
+
+def __module_begin__(name):
+    """
+    When called at the beginning of a `Module` definition, this
+    function registers its caller with the Builder system, and creates
+    a new context.
+    """
+    print "Making context for "+name
+    nc = BuilderContext(name)
+    curContext = nc
+    allContexts[name] = nc
+
+def __module_end__(name):
+    """
+    When called at the end of a `Module` definition, this function
+    resets the current context back to the base context and does
+    any other necessary cleanup.
+    """
+    print "Finished with context for "+name
+    curContext = allContexts[BaseContextName]

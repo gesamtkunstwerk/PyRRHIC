@@ -6,6 +6,7 @@ from the initial PyRRHIC Python input, and elaborated by the builder
 package into `pyrast`.
 """
 from pyrast import *
+import builder
 from builder import BuilderContext
 
 class BuilderType:
@@ -36,13 +37,13 @@ class BundleDec(BuilderType):
                                     orientation = orientation)
         return Bundle(fields)
     def __init__(self):
-        BuilderContext.curContext.updates += [BuilderTypeDec(self)]
+        builder.curContext.updates += [BuilderTypeDec(self)]
 
 class BuilderStmt(Stmt):
     isDec = False
     def __init__(self):
         print "ADDING "+str(self)
-        BuilderContext.curContext.updates += [self]
+        builder.curContext.updates += [self]
 
     def traverseExprs(self, func):
         """
@@ -64,17 +65,19 @@ class BuilderExpr(Expr):
 class BuilderId(BuilderExpr):
     def __init__(self, name):
         # Add this Id as a declaration to the current builder context
-        self.n = BuilderContext.curContext.instanceCount
-        BuilderContext.curContext.instanceCount += 1
+        self.n = builder.curContext.instanceCount
+        builder.curContext.instanceCount += 1
         self.name = name
 
 class BuilderDec(BuilderStmt):
     def __init__(self, idt):
         self.idt = idt
-        BuilderContext.curContext.updates += [BuilderDec(self)]
+        name = builder.curContext.name
+        print "ADDING CONTEXT UPDATE "+str(self)+" to "+name
+        builder.curContext.updates += [self]
 
 
-class Wire(BuilderStmt):
+class Wire(BuilderDec):
     isReg = False
     def __init__(self, type, idt = None):
         """
@@ -88,8 +91,9 @@ class Wire(BuilderStmt):
         """
         self.btype = type
         self.idt = idt
+        super(Wire, self).__init__(idt)
 
-class Reg(BuilderStmt):
+class Reg(BuilderDec):
     isReg = True
 
     def __init__(self, type, onReset = None, idt = None):
@@ -105,14 +109,7 @@ class Reg(BuilderStmt):
         self.onReset = onReset
         self.btype = type
         self.idt = idt
-
-class BuilderDec(BuilderStmt):
-    isDec = True
-    def __init__(self, idt):
-        self.idt = idt
-        self.isRed = idt.isReg
-    def traverseExprs(self, func):
-        self.idt = self.idt.traverse(func)
+        super(Reg, self).__init__(idt)
 
 class BuilderTypeDec(BuilderStmt):
     def __init__(self, bundleDec):
@@ -143,16 +140,15 @@ class ModuleBuilder(type):
         Creates this module's `ModuleDec` based on the state of the current
         builder context.
         """
-        self.__context__ = BuilderContext.curContext
+        self.__context__ = builder.curContext
         self.__context__.name = name
         self.__lineInfo__ = LineInfo(2)
 
         # Add this one, and make a new Context for the next `Module` invocation
         if name != "Module":
-            BC = BuilderContext
-            BC.allContexts[name] = self.__context__
-            BC.curContext = BC(BuilderContext.NewContextName)
-            BC.allContexts[BC.BaseContextName].updates += [self()]
+            builder.allContexts[name] = self.__context__
+            builder.curContext = BuilderContext(builder.NewContextName)
+            builder.allContexts[builder.BaseContextName].updates += [self()]
 
 class Module(BuilderStmt):
     __metaclass__ = ModuleBuilder

@@ -10,21 +10,22 @@ This module also includes utility functions for producing Python
 from builder.BuilderAST import *
 import ast, inspect
 
-ModuleBegin = "__Module_Begin__"
-ModuleEnd = "__Module_End__"
+ModuleBegin = "__module_begin__"
+ModuleEnd = "__module_end__"
 
 def process(path):
     """
     Parses the Python source at `path`, gets the AST, transforms it,
-    and then executes it to populate current context with module
-    and bundle definitions.
+    and returns the compiled AST.
     """
     f = open(path, "r")
     src = f.read()
     f.close()
     past = ast.parse(src)
-    print ast.dump(past)
-    return past
+    ModuleWalker().visit(past)
+    past = ast.fix_missing_locations(past)
+    code = compile(past, path, mode='exec')
+    return code
 
 def name_id(id, store=False):
     if store:
@@ -33,7 +34,7 @@ def name_id(id, store=False):
         return ast.Name(id=id, ctx=ast.Load())
 
 def make_call(func, args=[]):
-    return ast.Expr(ast.Call(func=name_id(func), args=[], keywords=[]))
+    return ast.Expr(ast.Call(func=name_id(func), args=args, keywords=[]))
 
 def assign_id(ids, rval):
     """
@@ -82,8 +83,9 @@ class ModuleWalker(ast.NodeTransformer):
         module (ClassDef): An AST node for defining a module.
         """
         new = self.generic_visit(module)
-        new.body.insert(0, make_call(ModuleBegin))
-        new.body.append(make_call(ModuleEnd))
+        name = [ast.Str(s=module.name)]
+        new.body.insert(0, make_call(ModuleBegin, name))
+        new.body.append(make_call(ModuleEnd, name))
         return new
 
     def visit_ClassDef(self, node):
