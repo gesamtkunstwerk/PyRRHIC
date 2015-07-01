@@ -3,9 +3,16 @@ import inspect
 
 # Invariant: this should always contain a NEW context to into which the
 # the next module declaration dumps its updates, and then can rename and
-# add to the `allContexts` dictionary once it's done.
-curContext = None
-allContexts = {}
+# add to the `allClassContexts` dictionary once it's done.
+curClassContext = None
+
+# The top of this stack should always be `curClassContext`.  It is pushed
+# to and popped from whenever entering and exiting a `Module` class
+# definition's body, respectively.
+classContextStack = []
+
+# Tracks the mapping of class names to their class contexts.
+allClassContexts = {}
 
 BaseContextName = "__BASE_CONTEXT__"
 NewContextName = "__NEW_CONTEXT__"
@@ -68,32 +75,42 @@ class BuilderContext(object):
         return names
 
     def elaborateAll(self):
-        bc = allContexts[BaseContextName]
+        bc = allClassContexts[BaseContextName]
         stmts = []
         for u in bc.updates:
             print u
             stmts += [u.elaborate()]
         return stmts
 
-curContext = BuilderContext(NewContextName)
-allContexts[BaseContextName] = BuilderContext(BaseContextName)
+# When a `Module` is defined, members declared in its body are to be added here
+curClassContext = BuilderContext(NewContextName)
 
-def __module_begin__(name):
-    """
-    When called at the beginning of a `Module` definition, this
-    function registers its caller with the Builder system, and creates
-    a new context.
-    """
-    print "Making context for "+name
-    nc = BuilderContext(name)
-    curContext = nc
-    allContexts[name] = nc
+# Tracks which `BuilderContext` corresponds to each module type based on the
+# string of each type's name.
+allClassContexts[BaseContextName] = BuilderContext(BaseContextName)
 
-def __module_end__(name):
+# The top of this stack contains the conext into which any wire/register
+# declarations should be added.
+instanceContextStack = []
+
+# Tracks which `BuilderInstanceContext` corresponds to each module instance
+# based on each instance's reference (that is, ``allInstanceContexts[m]``
+# contains module `m`'s context.)
+allInstanceContexts = {}
+
+class BuilderInstanceContext(BuilderContext):
     """
-    When called at the end of a `Module` definition, this function
-    resets the current context back to the base context and does
-    any other necessary cleanup.
+    Contains all information pertaining to the elaboration of an instance
+    of a PyRRHIC module.
     """
-    print "Finished with context for "+name
-    curContext = allContexts[BaseContextName]
+    def __init__(self, instanceName, classContext, module):
+        """
+        Parameters
+        ----------
+        instanceName (str): name of the instance of this module
+        classContext (BuilderContext): context for the class that of which
+                                        this module is an instance.
+        module (Module): instance associated with this context.
+        """
+        self.instanceName = instanceName
+        self.classContext = classContext
