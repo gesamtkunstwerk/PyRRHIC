@@ -37,13 +37,13 @@ class BundleDec(BuilderType):
                                     orientation = orientation)
         return Bundle(fields)
     def __init__(self):
-        builder.curContext.updates += [BuilderTypeDec(self)]
+        builder.curClassContext.updates += [BuilderTypeDec(self)]
 
 class BuilderStmt(Stmt):
     isDec = False
     def __init__(self):
         print "ADDING "+str(self)
-        builder.curContext.updates += [self]
+        builder.curClassContext.updates += [self]
 
     def traverseExprs(self, func):
         """
@@ -65,16 +65,16 @@ class BuilderExpr(Expr):
 class BuilderId(BuilderExpr):
     def __init__(self, name):
         # Add this Id as a declaration to the current builder context
-        self.n = builder.curContext.instanceCount
-        builder.curContext.instanceCount += 1
+        self.n = builder.curClassContext.instanceCount
+        builder.curClassContext.instanceCount += 1
         self.name = name
 
 class BuilderDec(BuilderStmt):
     def __init__(self, idt):
         self.idt = idt
-        name = builder.curContext.name
+        name = builder.curClassContext.name
         print "ADDING CONTEXT UPDATE "+str(self)+" to "+name
-        builder.curContext.updates += [self]
+        builder.curClassContext.updates += [self]
 
 
 class Wire(BuilderDec):
@@ -140,15 +140,15 @@ class ModuleBuilder(type):
         Creates this module's `ModuleDec` based on the state of the current
         builder context.
         """
-        self.__context__ = builder.curContext
+        self.__context__ = builder.curClassContext
         self.__context__.name = name
         self.__lineInfo__ = LineInfo(2)
 
         # Add this one, and make a new Context for the next `Module` invocation
         if name != "Module":
-            builder.allContexts[name] = self.__context__
-            builder.curContext = BuilderContext(builder.NewContextName)
-            builder.allContexts[builder.BaseContextName].updates += [self()]
+            builder.allClassContexts[name] = self.__context__
+            builder.curClassContext = BuilderContext(builder.NewContextName)
+            builder.allClassContexts[builder.BaseContextName].updates += [self()]
 
 class Module(BuilderStmt):
     __metaclass__ = ModuleBuilder
