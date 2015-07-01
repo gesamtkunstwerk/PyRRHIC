@@ -1,6 +1,5 @@
 from pyrast import *
 from builder.BuilderAST import *
-from builder import __module_end__, __module_begin__
 
 class TestModule(Module):
     w = Wire(UInt(1))
@@ -18,10 +17,9 @@ class MyIO(BundleDec):
 class SomeModule(Module):
     io = MyIO(16)
     w = Wire(UInt(8))
-    #Connect(io.data, w)
+    m = Module(TestModule())
 
 class OtherModule(Module):
     io = ReadyValIO()
     r = Reg(type=UInt(1), onReset=Lit(0))
     Connect(r, io.valid)
-   # Connect(io.ready, r)
