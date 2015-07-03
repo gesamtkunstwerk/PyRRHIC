@@ -102,6 +102,9 @@ class Wire(BuilderDec):
     def traverseExprs(self, func):
         self.idt = self.idt.traverse(func)
 
+    def elaborate(self):
+        return WireDec(self.idt, self.btype.__asType__())
+
 class Reg(BuilderDec):
     isReg = True
 
@@ -128,6 +131,11 @@ class Reg(BuilderDec):
         if self.onReset != None:
             self.onReset = self.onReset.traverse(func)
 
+    def elaborate(self):
+        return RegDec(idt = self.idt, \
+                        type = self.btype.__asType__(), \
+                        onReset = self.onReset)
+
 class BuilderTypeDec(BuilderStmt):
     def __init__(self, bundleDec):
         self.bundleDec = bundleDec
@@ -145,7 +153,7 @@ class Connect(BuilderStmt):
         self.lval = self.lval.traverse(func)
         self.rval = self.rval.traverse(func)
     def elaborate(self):
-        return ConnectStmt(lval, rval)
+        return ConnectStmt(self.lval, self.rval)
     def __repr__(self):
         return str(self.lval) + " := " + str(self.rval)
 
