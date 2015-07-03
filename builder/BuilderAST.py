@@ -177,7 +177,6 @@ class Module(BuilderStmt):
         self.__context__.renameIds()
         for upd in self.__context__.updates:
             stmts += [upd.elaborate()]
-        print self.__context__.name
         return ModuleDec(self.__context__.name, self.io, stmts)
 
     def traverseExprs(self, func):
