@@ -34,11 +34,13 @@ class BuilderContext(object):
         """
         rmap = self.renameMap()
         def replace(expr):
-            if isinstance(expr, BuilderId):
+            if isinstance(expr, BuilderAST.BuilderId):
+                print "Renaming expression "+str(expr)
                 return rmap[expr]
             else:
                 return expr
         for u in self.updates:
+            print "Renaming update "+str(u)
             u.traverseExprs(replace)
 
     def renameMap(self):
@@ -67,20 +69,13 @@ class BuilderContext(object):
         """
         names = {}
         for u in self.updates:
-            if u.isDec:
-                if u.idt.idt in names:
-                    names[u.idt.idt] += [u.idt]
+            if isinstance(u, BuilderAST.BuilderDec):
+                if u.idt.name.idt in names:
+                    names[u.idt.name.idt] += [u.idt]
                 else:
-                    names[u.idt.idt] = [u.idt]
+                    names[u.idt.name.idt] = [u.idt]
         return names
 
-    def elaborateAll(self):
-        bc = allClassContexts[BaseContextName]
-        stmts = []
-        for u in bc.updates:
-            print u
-            stmts += [u.elaborate()]
-        return stmts
 
 # When a `Module` is defined, members declared in its body are to be added here
 curClassContext = BuilderContext(NewContextName)
@@ -98,6 +93,18 @@ instanceContextStack = []
 # contains module `m`'s context.)
 allInstanceContexts = {}
 
+def elaborateAll():
+    print allInstanceContexts
+    for inst in allInstanceContexts:
+        ic = allInstanceContexts[inst]
+        ic.renameIds()
+        stmts = []
+        for u in ic.updates:
+            print u
+            stmts += [u.elaborate()]
+        print stmts
+        return stmts
+
 class BuilderInstanceContext(BuilderContext):
     """
     Contains all information pertaining to the elaboration of an instance
@@ -114,3 +121,4 @@ class BuilderInstanceContext(BuilderContext):
         """
         self.instanceName = instanceName
         self.classContext = classContext
+        self.updates = [] + classContext.updates
