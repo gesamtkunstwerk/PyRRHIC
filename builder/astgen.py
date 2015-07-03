@@ -1,5 +1,5 @@
 """
-PyRRHIC Builder Module Generator
+PyRRHIC Module Generator -- First Stage of PyRRHIC Compilation.
 
 Generates a Builder AST from a given Python source by walking its AST
 and transforming it appropriately.
@@ -7,7 +7,7 @@ and transforming it appropriately.
 This module also includes utility functions for producing Python
 `ast.Node` objects.
 """
-import builder
+import builder, pyrast
 from builder import instrument
 from builder.BuilderAST import *
 import ast, inspect, copy
@@ -23,7 +23,6 @@ def compile_pyrrhic(path):
     past = ast.parse(src)
     ModuleWalker().visit(past)
     past = ast.fix_missing_locations(past)
-    print ast.dump(past)
     code = compile(past, path, mode='exec')
     return code
 
@@ -33,7 +32,7 @@ def name_id(id, store=False):
     if store:
         return ast.Name(id = id, ctx=ast.Store())
     else:
-        return ast.Name(id=id, ctx=ast.Load())
+        return ast.Name(id = id, ctx=ast.Load())
 
 def make_call(func, args=[]):
     return ast.Expr(ast.Call(func=name_id(func), args=args, keywords=[]))
@@ -63,7 +62,7 @@ def assign_id(ids, rval):
         for i in ids:
             targets.append(name_id(i))
     else:
-        targets = [name_id(i)]
+        targets = [name_id(ids)]
     return ast.Assign(targets=targets, value=rval)
 
 class ModuleWalker(ast.NodeTransformer):
@@ -93,6 +92,7 @@ class ModuleWalker(ast.NodeTransformer):
                 isModule = True
         return isModule
 
+
     def instrument_module(self, module):
         """
         Adds a prologue and epilogue to the body of `module`
@@ -121,20 +121,36 @@ class ModuleWalker(ast.NodeTransformer):
         beginFunc = instrument.module_inst_begin.__name__
         endFunc = instrument.module_inst_end.__name__
         begin = inst_call(beginFunc, [instName, modClassName])
-        end = inst_call(endFunc, [ast.Str("Blah")])
+        end = inst_call(endFunc, [name_id(lval.id)])
+
 
         # Turn assignment `m = Module(M(...))` into assignment `m = M(...)`
         newAssign = ast.Assign([lval], modClassInit)
 
-        print "BEGIN: "+ast.dump(begin)
-        print "NEW ASSIGN "+ast.dump(newAssign)
-        print "END "+ast.dump(end)
-
         return [begin, newAssign, end]
+
+    def instrument_builder_dec(self, assign):
+        """
+        Translates a circuit element (wire or register) declaration of the form
+        ``w = Wire(type)`` into an identifier assignment and a ``Wire()`` call:
+        ``w = BuilderID("w")`` and ``Wire(type, idt="w")``
+        """
+        call = assign.value
+        func = call.func.id
+        lval = assign.targets[0]
+        elemName = ast.Str(s = lval.id)
+
+        pid = make_call(pyrast.Id.__name__, [elemName]).value
+        bid = make_call(BuilderId.__name__, [pid]).value
+        newAssign = ast.Assign([name_id(lval.id, store=True)], bid)
+        newCall = copy.deepcopy(call)
+        newCall.keywords.append(ast.keyword(arg="idt", value=name_id(lval.id)))
+
+        return [newAssign, ast.Expr(newCall)]
 
     def check_for_module_instance(self, assign):
         """
-        Returns true iff `node` is a wrapped instantiation of a module, of the
+        Returns true iff `assign` is a wrapped instantiation of a module, of the
         form ``m = Module(M(...))``
         """
         lval = assign.targets[0]    # Should be an `ast.Name`
@@ -144,9 +160,23 @@ class ModuleWalker(ast.NodeTransformer):
                 return True
         return False
 
+    def check_for_builder_dec(self, assign):
+        """
+        Returns true iff `assign` os a wrapped `BuilderAST.BuilderDec` instance
+        of the form `x = Wire(type, onReset)`.
+        """
+        lval = assign.targets[0]
+        if isinstance(assign.value, ast.Call):
+            call = assign.value
+            if call.func.id in [Wire.__name__, Reg.__name__]:
+                return True
+        return False
+
     def visit_Assign(self, node):
         if self.check_for_module_instance(node):
             return self.instrument_instance(node)
+        if self.check_for_builder_dec(node):
+            return self.instrument_builder_dec(node)
         return node
 
     def visit_ClassDef(self, node):
