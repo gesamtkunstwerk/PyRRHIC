@@ -16,10 +16,26 @@ class MyIO(BundleDec):
 
 class SomeModule(Module):
     io = MyIO(16)
-    w = Wire(UInt(8))
+    w = Wire(UInt(1))
     m = Module(TestModule())
+    Connect(m.w, w)
 
 class OtherModule(Module):
     io = ReadyValIO()
     r = Reg(type=UInt(1), onReset=Lit(0))
-    Connect(r, io.valid)
+
+    def make_reg(width=1):
+        mr = Reg(type=UInt(width))
+        w = Wire(UInt(width))
+        print "W = " + str(w)
+        Connect(w, mr)
+        return w
+
+    r1 = make_reg(width=2)
+    r2 = make_reg(width=3)
+
+    #Connect(r, io.valid)
+    def __init__(self):
+        print "INiting OtherModule"
+
+m = Module(OtherModule())
