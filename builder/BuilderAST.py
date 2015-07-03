@@ -45,18 +45,18 @@ class BuilderStmt(Stmt):
         print "ADDING "+str(self)
         builder.curClassContext.updates += [self]
 
-    def traverseExprs(self, func):
-        """
-        Finds all `Expr`s (`BuilderExpr` and otherwise) in this statement,
-        and calls their `traverse()` function with the supplied `func`
-        """
-        raise Error("Not implemented....")
+    # def traverseExprs(self, func):
+    #     """
+    #     Finds all `Expr`s (`BuilderExpr` and otherwise) in this statement,
+    #     and calls their `traverse()` function with the supplied `func`
+    #     """
+    #     raise AssertionError("Not implemented....")
 
-    def elaborate(self):
-        """
-        Returns a lower-level PyRRHIC AST for this statment.
-        """
-        raise Error("Not implemented...")
+    # def elaborate(self):
+    #     """
+    #     Returns a lower-level PyRRHIC AST for this statment.
+    #     """
+    #     raise AssertionError("Not implemented...")
 
 
 class BuilderExpr(Expr):
@@ -68,6 +68,8 @@ class BuilderId(BuilderExpr):
         self.n = builder.curClassContext.instanceCount
         builder.curClassContext.instanceCount += 1
         self.name = name
+    def __repr__(self):
+        return "{"+str(self.name)+" : "+(super(BuilderId, self).__repr__())+"}"
 
 class BuilderDec(BuilderStmt):
     def __init__(self, idt):
@@ -75,6 +77,7 @@ class BuilderDec(BuilderStmt):
         name = builder.curClassContext.name
         print "ADDING CONTEXT UPDATE "+str(self)+" to "+name
         builder.curClassContext.updates += [self]
+
 
 
 class Wire(BuilderDec):
@@ -92,6 +95,12 @@ class Wire(BuilderDec):
         self.btype = type
         self.idt = idt
         super(Wire, self).__init__(idt)
+
+    def __repr__(self):
+        return "wire "+str(self.idt)+": "+str(self.btype)
+
+    def traverseExprs(self, func):
+        self.idt = self.idt.traverse(func)
 
 class Reg(BuilderDec):
     isReg = True
@@ -111,6 +120,14 @@ class Reg(BuilderDec):
         self.idt = idt
         super(Reg, self).__init__(idt)
 
+    def __repr__(self):
+        return "reg "+str(self.idt)+": "+str(self.btype)
+
+    def traverseExprs(self, func):
+        self.idt = self.idt.traverse(func)
+        if self.onReset != None:
+            self.onReset = self.onReset.traverse(func)
+
 class BuilderTypeDec(BuilderStmt):
     def __init__(self, bundleDec):
         self.bundleDec = bundleDec
@@ -129,6 +146,8 @@ class Connect(BuilderStmt):
         self.rval = self.rval.traverse(func)
     def elaborate(self):
         return ConnectStmt(lval, rval)
+    def __repr__(self):
+        return str(self.lval) + " := " + str(self.rval)
 
 class ModuleBuilder(type):
     """
