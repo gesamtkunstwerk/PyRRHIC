@@ -1,3 +1,10 @@
+"""
+Builder Instrumentation Routines.
+
+Contains functions to be injected by the builder into Python ASTs prior to
+elaboration.  These update the current context with information about
+the names of modules, wires, etc.
+"""
 from builder import *
 
 def module_begin(name):
@@ -35,7 +42,6 @@ def module_inst_begin(instanceName, className):
 
     className (str): The (string) name of the class of module being instantiated
     """
-    print "MAKING INSTANCE CONTEXT FOR "+str(instanceName)+", "+str(className)
     classContext = allClassContexts[className]
     context = BuilderInstanceContext( \
         instanceName = instanceName,  \
@@ -54,5 +60,6 @@ def module_inst_end(module):
     module (Module): The module whose ``__init__()`` method was just called.
     """
     print "EXITING INSTANCE CONTEXT FOR "+str(module)
-    #context = instanceContextStack.pop()
-    #context.module = module
+    context = instanceContextStack.pop()
+    context.module = module
+    allInstanceContexts[module] = context
