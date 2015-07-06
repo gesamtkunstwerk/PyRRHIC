@@ -168,14 +168,7 @@ class ModuleBuilder(type):
         builder context.
         """
         self.__context__ = builder.curClassContext
-        self.__context__.name = name
-        self.__lineInfo__ = LineInfo(2)
-
-        # Add this one, and make a new Context for the next `Module` invocation
-        if name != "Module":
-            builder.allClassContexts[name] = self.__context__
-            builder.curClassContext = BuilderContext(builder.NewContextName)
-            builder.allClassContexts[builder.BaseContextName].updates += [self()]
+        self.__context__.className = name
 
 class Module(BuilderStmt):
     __metaclass__ = ModuleBuilder
@@ -189,3 +182,10 @@ class Module(BuilderStmt):
 
     def traverseExprs(self, func):
         return self
+
+    def derivedName(self):
+        """
+        Returns an appropriate name for an instance of the child type with
+        whatever parameter values it has.
+        """
+        return self.__context__.className
