@@ -5,7 +5,7 @@ Contains functions to be injected by the builder into Python ASTs prior to
 elaboration.  These update the current context with information about
 the names of modules, wires, etc.
 """
-from builder import *
+import builder
 
 def module_begin(name):
     """
@@ -13,12 +13,11 @@ def module_begin(name):
     function registers its caller with the Builder system, and creates
     a new context.
     """
-    global curClassContext
     print "Making context for "+name
-    nc = BuilderContext(name)
-    classContextStack.append(curClassContext)
-    curClassContext = nc
-    allClassContexts[name] = nc
+    nc = builder.BuilderContext(name)
+    builder.classContextStack.append(builder.curClassContext)
+    builder.curClassContext = nc
+    builder.allClassContexts[name] = nc
 
 def module_end(name):
     """
@@ -27,7 +26,8 @@ def module_end(name):
     any other needed cleanup.
     """
     print "Finished with context for "+name
-    curClassContext = classContextStack.pop()
+    print builder.curClassContext.updates
+    builder.curClassContext = builder.classContextStack.pop()
 
 
 def module_inst_begin(instanceName, className):
@@ -42,13 +42,13 @@ def module_inst_begin(instanceName, className):
 
     className (str): The (string) name of the class of module being instantiated
     """
-    classContext = allClassContexts[className]
-    context = BuilderInstanceContext( \
+    classContext = builder.allClassContexts[className]
+    context = builder.BuilderInstanceContext( \
         instanceName = instanceName,  \
         classContext = classContext,  \
         module = None) # Will be set afterwards by `module_init_end`
 
-    instanceContextStack.append(context)
+    builder.instanceContextStack.append(context)
 
 def module_inst_end(module):
     """
@@ -60,6 +60,6 @@ def module_inst_end(module):
     module (Module): The module whose ``__init__()`` method was just called.
     """
     print "EXITING INSTANCE CONTEXT FOR "+str(module)
-    context = instanceContextStack.pop()
+    context = builder.instanceContextStack.pop()
     context.module = module
-    allInstanceContexts[module] = context
+    builder.allInstanceContexts[module] = context
