@@ -33,6 +33,9 @@ class ConnectStmt(Stmt):
         self.lval = lval
         self.rval = rval
         
+    def __str__(self):
+        return str(self.lval) + " := " + str(self.rval)
+
 class ModuleDec(Stmt):
     def __init__(self, idt, io, stmts):
         self.idt = idt

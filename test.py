@@ -1,24 +1,28 @@
 from pyrast import *
 from builder.BuilderAST import *
 
-class TestModule(Module):
-    w = Wire(UInt(1))
-
 class ReadyValIO(BundleDec):
     ready = UInt(1)
     valid = Reverse(UInt(1))
 
-class MyIO(BundleDec):
-    print "in myio"
-    def __init__(self, width):
-        self.rv = ReadyValIO()
-        self.data = UInt(width)
+class RVData(ReadyValIO):
+    def __init__(self, data):
+        self.data = data
 
-class SomeModule(Module):
-    io = MyIO(16)
-    w = Wire(UInt(1))
-    m = Module(TestModule())
-    Connect(m.w, w)
+class FIFO32IO(BundleDec):
+    input = RVData(UInt(32))
+    output = RVData(UInt(32))
+
+class FIFO32(Module):
+
+    def __init__(self, stages):
+        self.io = Wire(FIFO32IO())
+        r = Wire(RVData(UInt(32)))
+        for n in range(stages):
+            rnext = Reg(RVData(UInt(32)))
+            Connect(rnext, r)
+            r = rnext
+        #Connect(self.io.output, r)
 
 class OtherModule(Module):
     io = ReadyValIO()
@@ -29,6 +33,8 @@ class OtherModule(Module):
         w = Wire(UInt(width))
         print "W = " + str(w)
         Connect(w, mr)
+        tm = Module(FIFO32(6))
+        # Connect(tm.io.input.valid, w)
         return w
 
     r1 = make_reg(width=2)

@@ -10,30 +10,30 @@ import builder
 from builder import BuilderContext
 
 class BuilderType:
-    __isReversed__ = False
+    __is_reversed__ = False
 
 class Reverse(BuilderType):
-    __isReversed__ = True
+    __is_reversed__ = True
 
     def __init__(self, type):
         self.type = type
 
-    def __asType__(self):
+    def __as_lower_type__(self):
         raise AssertionError("Shouldn't be called")
 
 class BundleDec(BuilderType):
-    def __asType__(self):
+    def __as_lower_type__(self):
         fields = {}
         for f in inspect.getmembers(self):
             (name, type) = f
             if name[0] == "_":
                 continue
             orientation = Field.Default
-            if isinstance(type, BuilderType) and type.__isReversed__:
+            if isinstance(type, BuilderType) and type.__is_reversed__:
                 orientation = Field.Reverse
                 type = type.type
             fields[name] = Field(name = name,
-                                    type = type.__asType__(),
+                                    type = type.__as_lower_type__(),
                                     orientation = orientation)
         return Bundle(fields)
     def __init__(self):
@@ -45,10 +45,10 @@ class BuilderStmt(Stmt):
         print "ADDING "+str(self)
         builder.curClassContext.updates += [self]
 
-    # def traverseExprs(self, func):
+    # def traverse_exprs(self, func):
     #     """
     #     Finds all `Expr`s (`BuilderExpr` and otherwise) in this statement,
-    #     and calls their `traverse()` function with the supplied `func`
+    #     and calls their `__traverse__()` function with the supplied `func`
     #     """
     #     raise AssertionError("Not implemented....")
 
@@ -65,11 +65,11 @@ class BuilderExpr(Expr):
 class BuilderId(BuilderExpr):
     def __init__(self, name):
         # Add this Id as a declaration to the current builder context
-        self.n = builder.curClassContext.instanceCount
+        self.__n__ = builder.curClassContext.instanceCount
         builder.curClassContext.instanceCount += 1
-        self.name = name
+        self.__name__ = name
     def __repr__(self):
-        return "{"+str(self.name)+" : "+(super(BuilderId, self).__repr__())+"}"
+        return "{"+str(self.__name__)+" : "+(super(BuilderId, self).__repr__())+"}"
 
 class BuilderDec(BuilderStmt):
     def __init__(self, idt):
@@ -99,11 +99,11 @@ class Wire(BuilderDec):
     def __repr__(self):
         return "wire "+str(self.idt)+": "+str(self.btype)
 
-    def traverseExprs(self, func):
-        self.idt = self.idt.traverse(func)
+    def traverse_exprs(self, func):
+        self.idt = self.idt.__traverse__(func)
 
     def elaborate(self):
-        return WireDec(self.idt, self.btype.__asType__())
+        return WireDec(self.idt, self.btype.__as_lower_type__())
 
 class Reg(BuilderDec):
     isReg = True
@@ -126,22 +126,22 @@ class Reg(BuilderDec):
     def __repr__(self):
         return "reg "+str(self.idt)+": "+str(self.btype)
 
-    def traverseExprs(self, func):
-        self.idt = self.idt.traverse(func)
+    def traverse_exprs(self, func):
+        self.idt = self.idt.__traverse__(func)
         if self.onReset != None:
-            self.onReset = self.onReset.traverse(func)
+            self.onReset = self.onReset.__traverse__(func)
 
     def elaborate(self):
         return RegDec(idt = self.idt, \
-                        type = self.btype.__asType__(), \
+                        type = self.btype.__as_lower_type__(), \
                         onReset = self.onReset)
 
 class BuilderTypeDec(BuilderStmt):
     def __init__(self, bundleDec):
         self.bundleDec = bundleDec
     def elaborate(self):
-        return TypeDec(self.bundleDec.__asType__())
-    def traverseExprs(self, func):
+        return TypeDec(self.bundleDec.__as_lower_type__())
+    def traverse_exprs(self, func):
         pass
 
 class Connect(BuilderStmt):
@@ -149,9 +149,9 @@ class Connect(BuilderStmt):
         self.lval = lval
         self.rval = rval
         BuilderStmt.__init__(self)
-    def traverseExprs(self, func):
-        self.lval = self.lval.traverse(func)
-        self.rval = self.rval.traverse(func)
+    def traverse_exprs(self, func):
+        self.lval = self.lval.__traverse__(func)
+        self.rval = self.rval.__traverse__(func)
     def elaborate(self):
         return ConnectStmt(self.lval, self.rval)
     def __repr__(self):
@@ -180,10 +180,10 @@ class Module(BuilderStmt):
             stmts += [upd.elaborate()]
         return ModuleDec(self.__context__.name, self.io, stmts)
 
-    def traverseExprs(self, func):
+    def traverse_exprs(self, func):
         return self
 
-    def derivedName(self):
+    def derived_name(self):
         """
         Returns an appropriate name for an instance of the child type with
         whatever parameter values it has.

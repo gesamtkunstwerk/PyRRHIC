@@ -181,7 +181,7 @@ class ModuleWalker(ast.NodeTransformer):
         """
         Translates a circuit element (wire or register) declaration of the form
         ``w = Wire(type)`` into an identifier assignment and a ``Wire()`` call:
-        ``w = BuilderID("w")`` and ``Wire(type, idt="w")``
+        ``w = BuilderId("w")`` and ``Wire(type, idt="w")``
         """
         call = assign.value
         func = call.func.id

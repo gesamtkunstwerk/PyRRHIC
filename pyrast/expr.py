@@ -2,10 +2,10 @@
 
 class Expr(object):
     """PyRRHIC Expression AST"""
-    lineInfo = None
+    __line_info__ = None
 
     # Set to true if no parentheses are needed around this expression
-    isSingleTerm = False
+    __is_single_term__ = False
 
     def __add__(self, other):
         return Add(self, other)
@@ -25,18 +25,24 @@ class Expr(object):
     def __lt__(self, other):
         return Lt(self, other)
 
-    def parens(self):
+    def __getattr__(self, attr):
+        if len(attr) > 2 and attr[0:1] == "__":
+            return super(self, object).__getattr__(attr)
+        else:
+            return Field(self, attr)
+
+    def ____parens____(self):
         """
         Adds parentheses around the string representation of this expression
         if it is not a literal.  Used in larger composite expressions' string
         representations.
         """
-        if self.isSingleTerm:
+        if self.__is_single_term__:
             return str(self)
         else:
             return "("+str(self)+")"
 
-    def traverse(self, func):
+    def __traverse__(self, func):
         """
         Performs a pre-order traversal of this `Expr` AST and applies `func`
         to each node encountered along the way, replacing it with the
@@ -48,7 +54,7 @@ class Expr(object):
 
 class Lit(Expr):
     """PyRRHIC Literal Expression"""
-    isSingleTerm = True
+    __is_single_term__ = True
 
     def __init__(self, value, width = None, signed = False):
         self.value = value
@@ -60,51 +66,65 @@ class Lit(Expr):
 
 
 class Id(Expr):
-    isSingleTerm = True
+    __is_single_term__ = True
 
     def __init__(self, idt):
-        self.idt = idt
+        self.__idt__ = idt
 
     def __str__(self):
-        return str(self.idt)
+        return str(self.__idt__)
     def __repr__(self):
-        return str(self.idt)
+        return str(self.__idt__)
 
+class Field(Expr):
+    __is_single_term__ = True
+
+    def __init__(self, base, attr):
+        self.__base__ = base
+        self.__attr__ = attr
+
+    def __traverse__(self, func):
+        self.__base__ = self.__base__.__traverse__(func)
+        return func(self)
+
+    def __str__(self):
+        return str(self.__base__) + "." + str(self.__attr__)
+      
 class BinExpr(Expr):
     def __init__(self, a, b):
-        self.a = a
-        self.b = b
+        self.__a__ = a
+        self.__b__ = b
 
     def __str__(self):
-        return self.a.parens() + " " + self.symbol + " " + self.b.parens()
+        return self.__a__.__parens__() + " " + self.__symbol__ + " " + self.__b__.__parens__()
 
-    def traverse(self, func):
-        self.a = self.a.traverse(func)
-        self.b = self.b.traverse(func)
+    def __traverse__(self, func):
+        self.__a__ = self.__a__.__traverse__(func)
+        self.__b__ = self.__b__.__traverse__(func)
         return func(self)
 
 class Add(BinExpr):
-    symbol = "+"
+    __symbol__ = "+"
     def __init__(self, a, b):
         BinExpr.__init__(self, a, b)
 
 class Sub(BinExpr):
-    symbol = "-"
+    __symbol__ = "-"
     def __init__(self, a, b):
         BinExpr.__init__(self, a, b)
 
 class UnExpr(Expr):
-    isSingleTerm = True
+    __is_single_term__ = True
     def __init__(self, e):
         self.e = e
     def __str__(self):
-        return self.symbol + self.e.parens()
-    def traverse(self, func):
-        self.e = self.e.traverse(func)
+        return self.__symbol__ + self.e.__parens__()
+    def __traverse__(self, func):
+        self.e = self.e.__traverse__(func)
         return func(self)
 
 class Invert(UnExpr):
-    symbol = "~"
+    __symbol__ = "~"
     def __init__(self, e):
         UnExpr.__init__(self, e)
 
@@ -117,8 +137,8 @@ class SReg(Expr):
             return "Reg("+str(self.value)+", "+str(self.enable)+")"
         else:
             return "Reg("+str(self.value)+")"
-    def traverse(self, func):
-        self.value = self.value.traverse(func)
+    def __traverse__(self, func):
+        self.value = self.value.__traverse__(func)
         return func(self)
 
 class Bits(Expr):
@@ -127,9 +147,9 @@ class Bits(Expr):
         self.msb = msb
         self.lsb = lsb
     def __str__(self):
-        return self.e.parens() + "[" + str(self.msb) + ":" + str(self.lsb) + "]"
-    def traverse(self, func):
-        self.e = self.e.traverse(func)
+        return self.e.__parens__() + "[" + str(self.msb) + ":" + str(self.lsb) + "]"
+    def __traverse__(self, func):
+        self.e = self.e.__traverse__(func)
         return func(self)
 
 class Cat(Expr):
@@ -140,42 +160,42 @@ class Cat(Expr):
         for s in self.exprs[1:]:
             res += ", " + str(s)
         return "Cat("+res+")"
-    def traverse(self, func):
+    def __traverse__(self, func):
         newExprs = []
         for e in self.exprs:
-            newExprs += [e.traverse(func)]
+            newExprs += [e.__traverse__(func)]
         self.exprs = newExprs
         return func(self)
 
 class Eq(BinExpr):
-    symbol = "=="
+    __symbol__ = "=="
     def __init__(self, a, b):
         BinExpr.__init__(self, a, b)
 
 class Neq(BinExpr):
-    symbol = "!="
+    __symbol__ = "!="
     def __init__(self, a, b):
         BinExpr.__init__(self, a, b)
 
 class Lt(BinExpr):
-    symbol = "<"
+    __symbol__ = "<"
     def __init__(self, a, b):
         BinExpr.__init__(self, a, b)
 
 class Gt(BinExpr):
-    symbol = ">"
+    __symbol__ = ">"
     def __init__(self, a, b):
         BinExpr.__init__(self, a, b)
 
 class Mux(Expr):
     def __init__(self, sel, a, b):
-        self.a = a
-        self.b = b
-        self.sel = sel
+        self.__a__ = a
+        self.__b__ = b
+        self.__sel__ = sel
     def __str__(self):
-        return "Mux(" + str(self.sel) + ", " + str(self.a) + ", " + str(self.b) + ")"
-    def traverse(self, func):
-        self.sel = self.sel.traverse(func)
-        self.a = self.a.traverse(func)
-        self.b = self.b.traverse(func)
+        return "Mux(" + str(self.__sel__) + ", " + str(self.__a__) + ", " + str(self.__b__) + ")"
+    def __traverse__(self, func):
+        self.__sel__ = self.__sel__.__traverse__(func)
+        self.__a__ = self.__a__.__traverse__(func)
+        self.__b__ = self.__b__.__traverse__(func)
         return func(self)

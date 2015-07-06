@@ -41,7 +41,7 @@ class BuilderContext(object):
                 return expr
         for u in self.updates:
             print "Renaming update "+str(u)
-            u.traverseExprs(replace)
+            u.traverse_exprs(replace)
 
     def renameMap(self):
         """
@@ -70,10 +70,10 @@ class BuilderContext(object):
         names = {}
         for u in self.updates:
             if isinstance(u, BuilderAST.BuilderDec):
-                if u.idt.name.idt in names:
-                    names[u.idt.name.idt] += [u.idt]
+                if u.idt.__name__.__idt__ in names:
+                    names[u.idt.__name__.__idt__] += [u.idt]
                 else:
-                    names[u.idt.name.idt] = [u.idt]
+                    names[u.idt.__name__.__idt__] = [u.idt]
         return names
 
 
@@ -144,7 +144,7 @@ class BuilderInstanceContext(BuilderContext):
         Sets the name of this instance context to one that does not yet
         appear in the global `instanceNames` dictionary.
         """
-        desired_name = self.module.derivedName()
+        desired_name = self.module.derived_name()
         if desired_name in instanceNames:
             count = len(instanceNames[desired_name])
             self.name = "_" + desired_name + "_" + str(count)
