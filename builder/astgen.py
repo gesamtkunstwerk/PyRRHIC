@@ -65,6 +65,54 @@ def assign_id(ids, rval):
         targets = [name_id(ids)]
     return ast.Assign(targets=targets, value=rval)
 
+
+class ModuleAssignLV(object):
+    """
+    Represents an lvalue of an assignment statement that declares a wire/reg.
+
+    This is needed for wire and register declarations that might be
+    written as ``w = Wire(...)`` or as ``self.w = Wire(...)`` (or via
+    other classes on the left hand side).
+    """
+    def __init__(self, assign):
+        self.attrs = []
+        lval = assign.targets[0]
+        while isinstance(lval, ast.Attribute):
+            self.attrs.append(lval.attr)
+            lval = lval.value
+        self.attrs.append(lval.id) # `lval` should be `ast.Name` here
+        self.attrs.reverse()
+        self.lval = assign.targets[0] # Save original lvalue for later use
+        self.set_lvstr()
+
+
+    def set_lvstr(self):
+      """
+      Sets the `lvstr` value based on all the attributes in `self.attrs`
+      Should only be called be `__init__`.
+      """
+      self.lvstr = None
+      for attr in self.attrs:
+        if self.lvstr == None:
+          self.lvstr = attr
+        else:
+          self.lvstr += "_" + attr
+
+
+    def new_id(self, store = False):
+        """
+        Returns an assignment lvalue equivalent to the one with which this
+        `ModuleAssignLV` was initialized, though possibly with a different
+        `ctx` value depending on `store`.
+        """
+        res = copy.deepcopy(self.lval)
+        if store:
+          res.ctx = ast.Store()
+        else:
+          res.ctx = ast.Load()
+        return res
+
+
 class ModuleWalker(ast.NodeTransformer):
     """
     Finds PyRRHIC module definitions in a Python AST and transforms them.
@@ -112,8 +160,8 @@ class ModuleWalker(ast.NodeTransformer):
         assign (ast.Assign): An AST node instantiating a module
         """
         call = assign.value         # Should be `ast.Call` type
-        lval = assign.targets[0]    # Should be an `ast.Name`
-        instName = ast.Str(s = lval.id)
+        lval = ModuleAssignLV(assign)
+        instName = ast.Str(s = lval.lvstr)
         modClassInit = call.args[0] # Also `ast.Call` type
         modClassName = ast.Str(s = modClassInit.func.id)
 
@@ -121,11 +169,11 @@ class ModuleWalker(ast.NodeTransformer):
         beginFunc = instrument.module_inst_begin.__name__
         endFunc = instrument.module_inst_end.__name__
         begin = inst_call(beginFunc, [instName, modClassName])
-        end = inst_call(endFunc, [name_id(lval.id)])
+        end = inst_call(endFunc, [lval.new_id()])
 
 
         # Turn assignment `m = Module(M(...))` into assignment `m = M(...)`
-        newAssign = ast.Assign([lval], modClassInit)
+        newAssign = ast.Assign([lval.new_id(store = True)], modClassInit)
 
         return [begin, newAssign, end]
 
@@ -137,15 +185,17 @@ class ModuleWalker(ast.NodeTransformer):
         """
         call = assign.value
         func = call.func.id
-        lval = assign.targets[0]
-        elemName = ast.Str(s = lval.id)
+        lvid = ModuleAssignLV(assign)
+        print "LVID = "+lvid.lvstr+"  (type = "+ str(type(lvid.lvstr))+")"
+        elemName = ast.Str(s = lvid.lvstr)
 
         pid = make_call(pyrast.Id.__name__, [elemName]).value
         bid = make_call(BuilderId.__name__, [pid]).value
-        newAssign = ast.Assign([name_id(lval.id, store=True)], bid)
+        newAssign = ast.Assign([lvid.new_id(store = True)], bid)
         newCall = copy.deepcopy(call)
-        newCall.keywords.append(ast.keyword(arg="idt", value=name_id(lval.id)))
-
+        newCall.keywords.append(ast.keyword(arg="idt", value=lvid.new_id()))
+        print "new assign: "+str(ast.dump(newAssign))
+        print "new call: "+str(ast.dump(newCall))
         return [newAssign, ast.Expr(newCall)]
 
     def check_for_module_instance(self, assign):
