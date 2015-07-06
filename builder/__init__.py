@@ -93,17 +93,33 @@ instanceContextStack = []
 # contains module `m`'s context.)
 allInstanceContexts = {}
 
+# When an instance is elaborated, it gets added to this dict and removed
+# from `allInstanceContexts`.
+elaboratedInstances = {}
+
+# When an instance is elaborated, its desired name is added to this dictionary.
+# If a name is already present, the instance is renamed to ahve a name that
+# ends with `_N` where `N` is the current number of modules with that name.
+instanceNames = {}
+
+
 def elaborateAll():
+    global allInstanceContexts
     print allInstanceContexts
     for inst in allInstanceContexts:
+        print "Elaborating "+str(inst)
         ic = allInstanceContexts[inst]
+        ic.rename()
+        print "New instance name: "+str(ic.name)
         ic.renameIds()
         stmts = []
         for u in ic.updates:
-            print u
+            print "Update "+str(u)
             stmts += [u.elaborate()]
         print stmts
-        return stmts
+        elaboratedInstances[inst] = stmts
+    allInstanceContexts = {}
+
 
 class BuilderInstanceContext(BuilderContext):
     """
@@ -122,3 +138,18 @@ class BuilderInstanceContext(BuilderContext):
         self.instanceName = instanceName
         self.classContext = classContext
         self.updates = [] + classContext.updates
+
+    def rename(self):
+        """
+        Sets the name of this instance context to one that does not yet
+        appear in the global `instanceNames` dictionary.
+        """
+        desired_name = self.module.derivedName()
+        if desired_name in instanceNames:
+            count = len(instanceNames[desired_name])
+            self.name = "_" + desired_name + "_" + str(count)
+            instanceNames[desired_name].append(self)
+        else:
+            self.name = desired_name
+            instanceNames[desired_name] = [self]
+        return self.name
