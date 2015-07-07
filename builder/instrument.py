@@ -13,10 +13,9 @@ def module_begin(name):
     function registers its caller with the Builder system, and creates
     a new context.
     """
-    print "Making context for "+name
     nc = builder.BuilderContext(name)
-    builder.classContextStack.append(builder.curClassContext)
-    builder.curClassContext = nc
+    builder.context_stack.append(builder.cur_context)
+    builder.cur_context = nc
     builder.allClassContexts[name] = nc
 
 def module_end(name):
@@ -25,9 +24,7 @@ def module_end(name):
     resets the current context back to the enclosing one and performs
     any other needed cleanup.
     """
-    print "Finished with context for "+name
-    print builder.curClassContext.updates
-    builder.curClassContext = builder.classContextStack.pop()
+    builder.cur_context = builder.context_stack.pop()
 
 
 def module_inst_begin(instanceName, className):
@@ -47,8 +44,8 @@ def module_inst_begin(instanceName, className):
         instanceName = instanceName,  \
         classContext = classContext,  \
         module = None) # Will be set afterwards by `module_init_end`
-
-    builder.instanceContextStack.append(context)
+    builder.context_stack.append(builder.cur_context)
+    builder.cur_context = context
 
 def module_inst_end(module):
     """
@@ -59,7 +56,8 @@ def module_inst_end(module):
     ----------
     module (Module): The module whose ``__init__()`` method was just called.
     """
-    print "EXITING INSTANCE CONTEXT FOR "+str(module)
-    context = builder.instanceContextStack.pop()
-    context.module = module
-    builder.allInstanceContexts[module] = context
+    builder.cur_context.module = module
+    module.__context__ = builder.cur_context
+    builder.allInstanceContexts[module] = builder.cur_context
+    builder.cur_context = builder.context_stack.pop()
+   

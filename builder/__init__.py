@@ -1,19 +1,6 @@
 from pyrast import *
 import inspect
 
-# Invariant: this should always contain a NEW context to into which the
-# the next module declaration dumps its updates, and then can rename and
-# add to the `allClassContexts` dictionary once it's done.
-curClassContext = None
-
-# The top of this stack should always be `curClassContext`.  It is pushed
-# to and popped from whenever entering and exiting a `Module` class
-# definition's body, respectively.
-classContextStack = []
-
-# Tracks the mapping of class names to their class contexts.
-allClassContexts = {}
-
 BaseContextName = "__BASE_CONTEXT__"
 NewContextName = "__NEW_CONTEXT__"
 
@@ -76,17 +63,16 @@ class BuilderContext(object):
                     names[u.idt.__name__.__idt__] = [u.idt]
         return names
 
+# Always contains the context in which to log the next update
+cur_context = BuilderContext(BaseContextName)
+context_stack = []
 
-# When a `Module` is defined, members declared in its body are to be added here
-curClassContext = BuilderContext(NewContextName)
 
 # Tracks which `BuilderContext` corresponds to each module type based on the
 # string of each type's name.
+allClassContexts = {}
 allClassContexts[BaseContextName] = BuilderContext(BaseContextName)
 
-# The top of this stack contains the conext into which any wire/register
-# declarations should be added.
-instanceContextStack = []
 
 # Tracks which `BuilderInstanceContext` corresponds to each module instance
 # based on each instance's reference (that is, ``allInstanceContexts[m]``
@@ -136,7 +122,10 @@ class BuilderInstanceContext(BuilderContext):
         module (Module): instance associated with this context.
         """
         self.instanceName = instanceName
+        self.className = classContext.name
         self.classContext = classContext
+        self.instanceCount = classContext.instanceCount
+        self.name = classContext.name + "_INSTANCE"
         self.updates = [] + classContext.updates
 
     def rename(self):
@@ -145,6 +134,7 @@ class BuilderInstanceContext(BuilderContext):
         appear in the global `instanceNames` dictionary.
         """
         desired_name = self.module.derived_name()
+        print "Trying to rename "+self.name+" to "+desired_name
         if desired_name in instanceNames:
             count = len(instanceNames[desired_name])
             self.name = "_" + desired_name + "_" + str(count)

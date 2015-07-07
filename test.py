@@ -34,7 +34,7 @@ class OtherModule(Module):
         print "W = " + str(w)
         Connect(w, mr)
         tm = Module(FIFO32(6))
-        # Connect(tm.io.input.valid, w)
+        Connect(tm.io.input.valid, w)
         return w
 
     r1 = make_reg(width=2)

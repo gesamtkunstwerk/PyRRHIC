@@ -37,13 +37,13 @@ class BundleDec(BuilderType):
                                     orientation = orientation)
         return Bundle(fields)
     def __init__(self):
-        builder.curClassContext.updates += [BuilderTypeDec(self)]
+        builder.cur_context.updates += [BuilderTypeDec(self)]
 
 class BuilderStmt(Stmt):
     isDec = False
     def __init__(self):
         print "ADDING "+str(self)
-        builder.curClassContext.updates += [self]
+        builder.cur_context.updates += [self]
 
     # def traverse_exprs(self, func):
     #     """
@@ -65,8 +65,8 @@ class BuilderExpr(Expr):
 class BuilderId(BuilderExpr):
     def __init__(self, name):
         # Add this Id as a declaration to the current builder context
-        self.__n__ = builder.curClassContext.instanceCount
-        builder.curClassContext.instanceCount += 1
+        self.__n__ = builder.cur_context.instanceCount
+        builder.cur_context.instanceCount += 1
         self.__name__ = name
     def __repr__(self):
         return "{"+str(self.__name__)+" : "+(super(BuilderId, self).__repr__())+"}"
@@ -74,9 +74,9 @@ class BuilderId(BuilderExpr):
 class BuilderDec(BuilderStmt):
     def __init__(self, idt):
         self.idt = idt
-        name = builder.curClassContext.name
+        name = builder.cur_context.name
         print "ADDING CONTEXT UPDATE "+str(self)+" to "+name
-        builder.curClassContext.updates += [self]
+        builder.cur_context.updates += [self]
 
 
 
@@ -167,8 +167,9 @@ class ModuleBuilder(type):
         Creates this module's `ModuleDec` based on the state of the current
         builder context.
         """
-        self.__context__ = builder.curClassContext
+        self.__context__ = builder.cur_context
         self.__context__.className = name
+        print "Set context for "+str(self)+" to "+str(self.__context__.className)
 
 class Module(BuilderStmt):
     __metaclass__ = ModuleBuilder
@@ -188,4 +189,5 @@ class Module(BuilderStmt):
         Returns an appropriate name for an instance of the child type with
         whatever parameter values it has.
         """
+        print "Deriving name for "+str(self)+": "+self.__context__.className
         return self.__context__.className
