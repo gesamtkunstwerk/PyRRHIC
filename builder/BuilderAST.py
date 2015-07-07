@@ -71,6 +71,7 @@ class BuilderId(BuilderExpr):
     def __repr__(self):
         return "{"+str(self.__name__)+" : "+(super(BuilderId, self).__repr__())+"}"
 
+
 class BuilderDec(BuilderStmt):
     def __init__(self, idt):
         self.idt = idt
@@ -189,5 +190,20 @@ class Module(BuilderStmt):
         Returns an appropriate name for an instance of the child type with
         whatever parameter values it has.
         """
-        print "Deriving name for "+str(self)+": "+self.__context__.className
         return self.__context__.className
+
+class BuilderInst(BuilderDec):
+    """
+    Module instance declaration statement.
+    """
+
+    def __init__(self, idt, module):
+        self.idt = idt
+        self.module = module
+        BuilderStmt.__init__(self)
+
+    def elaborate(self):
+        return ModuleInst(inst_idt = self.idt, mod_idt = self.module.__context__.name)
+
+    def traverse_exprs(self, func):
+        self.idt = self.idt.__traverse__(func)

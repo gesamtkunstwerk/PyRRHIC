@@ -99,7 +99,7 @@ class ModuleAssignLV(object):
           self.lvstr += "_" + attr
 
 
-    def new_id(self, store = False):
+    def new_id(self, store = False, shadow = False):
         """
         Returns an assignment lvalue equivalent to the one with which this
         `ModuleAssignLV` was initialized, though possibly with a different
@@ -111,6 +111,14 @@ class ModuleAssignLV(object):
         else:
           res.ctx = ast.Load()
         return res
+
+    def new_shadow_id(self, store = False):
+        """
+        Returns an an assignment lvalue AST node similar to the result of
+        `new_id()`, but with a name prefixed by "__" and suffixed by "_MODULE__"
+        """
+        shadow_name = "__" + self.lvstr + "_MODULE__"
+        return name_id(shadow_name, store)
 
 
 class ModuleWalker(ast.NodeTransformer):
@@ -155,8 +163,17 @@ class ModuleWalker(ast.NodeTransformer):
 
     def instrument_instance(self, assign):
         """
-        Translates a module instantiation (``m = Module(M(...))``)
+        Translates a module instantiation (``m = Module(M(...))``) into
+        an instrumented instantiation :
+        
+        >>> instrument.module_inst_begin()
+        >>> m = BuilderId("m")
+        >>> __m_MODULE__ = M(...)
+        >>> instrument.module_inst_end(__m_MODULE__)
+        >>> BuilderInst(m, __m_MODULE__)
 
+        Parameters
+        ----------
         assign (ast.Assign): An AST node instantiating a module
         """
         call = assign.value         # Should be `ast.Call` type
@@ -169,13 +186,25 @@ class ModuleWalker(ast.NodeTransformer):
         beginFunc = instrument.module_inst_begin.__name__
         endFunc = instrument.module_inst_end.__name__
         begin = inst_call(beginFunc, [instName, modClassName])
-        end = inst_call(endFunc, [lval.new_id()])
+        end = inst_call(endFunc, [lval.new_shadow_id()])
 
 
-        # Turn assignment `m = Module(M(...))` into assignment `m = M(...)`
-        newAssign = ast.Assign([lval.new_id(store = True)], modClassInit)
+        # Turn assignment `m = Module(M(...))` into a `BuilderId` declaration
+        # and a `_MODULE__` declaration
+        pid = make_call(pyrast.Id.__name__, [instName]).value
+        bid = make_call(BuilderId.__name__, [pid]).value
+        idAssign = ast.Assign([lval.new_id(store = True)], bid)
+        modAssign = ast.Assign([lval.new_shadow_id(store = True)], modClassInit)
+  
+        # Make a `BuilderInst` call to generate a context update
+        blval = lval.new_id(store = False)
+        binst_args = [blval, lval.new_shadow_id()]
+        binst = make_call(BuilderInst.__name__, binst_args)
 
-        return [begin, newAssign, end]
+        res = [begin, idAssign, modAssign, end, binst]
+        for i in res:
+          print ast.dump(i)
+        return res
 
     def instrument_builder_dec(self, assign):
         """
@@ -186,7 +215,6 @@ class ModuleWalker(ast.NodeTransformer):
         call = assign.value
         func = call.func.id
         lvid = ModuleAssignLV(assign)
-        print "LVID = "+lvid.lvstr+"  (type = "+ str(type(lvid.lvstr))+")"
         elemName = ast.Str(s = lvid.lvstr)
 
         pid = make_call(pyrast.Id.__name__, [elemName]).value

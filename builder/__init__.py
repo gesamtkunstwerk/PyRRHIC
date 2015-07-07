@@ -57,6 +57,7 @@ class BuilderContext(object):
         names = {}
         for u in self.updates:
             if isinstance(u, BuilderAST.BuilderDec):
+                print "\tCollected "+str(u.idt)
                 if u.idt.__name__.__idt__ in names:
                     names[u.idt.__name__.__idt__] += [u.idt]
                 else:
@@ -89,21 +90,23 @@ elaboratedInstances = {}
 instanceNames = {}
 
 
-def elaborateAll():
+def elaborate_all_instances():
     global allInstanceContexts
-    print allInstanceContexts
+    global elaboratedInstances
+
+    # All instance contexts must be renamed before elaboration
+    # so that the new names are propagated into the PyRRHIC AST nodes.
     for inst in allInstanceContexts:
-        print "Elaborating "+str(inst)
+      allInstanceContexts[inst].rename()
+
+    for inst in allInstanceContexts:
         ic = allInstanceContexts[inst]
-        ic.rename()
-        print "New instance name: "+str(ic.name)
         ic.renameIds()
         stmts = []
         for u in ic.updates:
-            print "Update "+str(u)
             stmts += [u.elaborate()]
-        print stmts
-        elaboratedInstances[inst] = stmts
+        mdec = ModuleDec(ic.name, ic.module.io, stmts)
+        elaboratedInstances[inst] = mdec
     allInstanceContexts = {}
 
 
@@ -133,8 +136,8 @@ class BuilderInstanceContext(BuilderContext):
         Sets the name of this instance context to one that does not yet
         appear in the global `instanceNames` dictionary.
         """
+        print "Module = "+str(self.module)
         desired_name = self.module.derived_name()
-        print "Trying to rename "+self.name+" to "+desired_name
         if desired_name in instanceNames:
             count = len(instanceNames[desired_name])
             self.name = "_" + desired_name + "_" + str(count)

@@ -41,5 +41,23 @@ class ModuleDec(Stmt):
         self.idt = idt
         self.io = io
         self.stmts = stmts
-        
-    
+
+    def __str__(self):
+        res = "module "+str(self.idt)+":\n"
+        for stmt in self.stmts:
+          res += "  " + str(stmt) + "\n"
+        return res
+
+class ModuleInst(Stmt):
+    def __init__(self, inst_idt, mod_idt):
+      """
+      Parameters
+      ----------
+      inst_idt (Id): name of the instance being declared in the current scope
+      mod_idt (Id): name of the module type being instantiated
+      """
+      self.inst_idt = inst_idt
+      self.mod_idt = mod_idt
+     
+    def __str__(self):
+      return "inst " + str(self.inst_idt) + " : " + str(self.mod_idt)
