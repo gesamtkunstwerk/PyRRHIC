@@ -89,6 +89,8 @@ elaboratedInstances = {}
 # ends with `_N` where `N` is the current number of modules with that name.
 instanceNames = {}
 
+# Contains the nearest-enclosing conditional expression
+cond_stack = []
 
 def elaborate_all_instances():
     global allInstanceContexts

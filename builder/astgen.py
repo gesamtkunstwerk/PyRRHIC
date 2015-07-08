@@ -176,6 +176,7 @@ class ModuleWalker(ast.NodeTransformer):
         ----------
         assign (ast.Assign): An AST node instantiating a module
         """
+        assign = self.generic_visit(assign)
         call = assign.value         # Should be `ast.Call` type
         lval = ModuleAssignLV(assign)
         instName = ast.Str(s = lval.lvstr)
@@ -212,6 +213,7 @@ class ModuleWalker(ast.NodeTransformer):
         ``w = Wire(type)`` into an identifier assignment and a ``Wire()`` call:
         ``w = BuilderId("w")`` and ``Wire(type, idt="w")``
         """
+        assign = self.generic_visit(assign)
         call = assign.value
         func = call.func.id
         lvid = ModuleAssignLV(assign)
@@ -225,6 +227,30 @@ class ModuleWalker(ast.NodeTransformer):
         print "new assign: "+str(ast.dump(newAssign))
         print "new call: "+str(ast.dump(newCall))
         return [newAssign, ast.Expr(newCall)]
+
+    def instrument_when(self, if_stmt):
+        """
+        Translates an if statement with a `When()`-wrapped test field into
+        a series of calls into the builder runtime that generates a `WhenStmt`.
+
+        More specifically, ``if When(cond): [ifbody] else: [elsebody]`` becomes:
+
+        >>> builder.when_begin(cond)
+        >>> ifbody
+        >>> builder.when_else()
+        >>> elsebody
+        >>> builder.when_end()
+        """
+        if_stmt = self.generic_visit(if_stmt)
+        cond = if_stmt.test.args[0]
+        print "COND: "+str(cond)
+        
+        begin = inst_call(instrument.when_begin.__name__, [cond])
+        else_call = inst_call(instrument.when_else.__name__, [])
+        end = inst_call(instrument.when_end.__name__, [])
+
+        res = [begin] + if_stmt.body + [else_call] + if_stmt.orelse + [end]
+        return res
 
     def check_for_module_instance(self, assign):
         """
@@ -250,6 +276,16 @@ class ModuleWalker(ast.NodeTransformer):
                 return True
         return False
 
+    def check_for_when(self, if_stmt):
+        """
+        Returns true iff `if_stmt` has a `test` field consisting of a `When()`
+        statement.
+        """
+        if isinstance(if_stmt.test, ast.Call):
+          if if_stmt.test.func.id == 'When':
+            return True
+        return False
+
     def visit_Assign(self, node):
         if self.check_for_module_instance(node):
             return self.instrument_instance(node)
@@ -260,4 +296,9 @@ class ModuleWalker(ast.NodeTransformer):
     def visit_ClassDef(self, node):
         if self.check_for_module(node):
             return self.instrument_module(node)
+        return node
+
+    def visit_If(self, node):
+        if self.check_for_when(node):
+          return self.instrument_when(node)
         return node

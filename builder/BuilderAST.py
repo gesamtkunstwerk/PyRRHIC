@@ -172,6 +172,7 @@ class ModuleBuilder(type):
         self.__context__.className = name
         print "Set context for "+str(self)+" to "+str(self.__context__.className)
 
+
 class Module(BuilderStmt):
     __metaclass__ = ModuleBuilder
 
@@ -191,6 +192,55 @@ class Module(BuilderStmt):
         whatever parameter values it has.
         """
         return self.__context__.className
+
+class Block(BuilderStmt):
+    """
+    Represents a list of sub-statements
+    """
+    def __init__(self, stmts):
+        self.stmts = stmts
+
+    def elaborate(self):
+        res = []
+        for s in self.stmts:
+            if s != None:
+              res.append(s.elaborate())
+        return res
+
+    def traverse_exprs(self, func):
+        stmts = []
+        for s in self.stmts:
+              if s != None:
+                  stmts.append(s.traverse_exprs(func))
+        self.stmts = stmts
+        return self
+
+class BuilderWhen(BuilderStmt):
+    """
+    Conditional assignment as represented in the builder.
+    """
+    def __init__(self, cond, if_body, else_body):
+        """
+        Parameters
+        ----------
+        cond (Expr): Conditional expression to select `if_body` or `else_body`
+        if_body (BuilderStmt): Updates to apply if `cond` is true
+        else_body (BuilderStmt): Updates to apply if `cond` is false
+        """
+        self.cond = cond
+        self.if_body = if_body
+        self.else_body = else_body
+
+    def elaborate(self):
+        ib = self.if_body.elaborate()
+        eb = self.else_body.elaborate()
+        return WhenStmt(self.cond, ib, eb)
+
+    def traverse_exprs(self, func):
+        self.cond = self.cond.__traverse__(func)
+        self.if_body.traverse_exprs(func)
+        self.else_body.traverse_exprs(func)
+        return self
 
 class BuilderInst(BuilderDec):
     """

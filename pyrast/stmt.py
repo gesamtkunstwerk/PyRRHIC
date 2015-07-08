@@ -36,6 +36,12 @@ class ConnectStmt(Stmt):
     def __str__(self):
         return str(self.lval) + " := " + str(self.rval)
 
+class WhenStmt(Stmt):
+  def __init__(self, cond, if_stmts, else_stmts):
+      self.cond = cond
+      self.if_stmts = if_stmts
+      self.else_stmts = else_stmts
+
 class ModuleDec(Stmt):
     def __init__(self, idt, io, stmts):
         self.idt = idt
