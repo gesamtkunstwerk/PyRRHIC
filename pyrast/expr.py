@@ -29,7 +29,7 @@ class Expr(object):
         if len(attr) > 2 and attr[0:1] == "__":
             return super(self, object).__getattr__(attr)
         else:
-            return Field(self, attr)
+            return SubField(self, attr)
 
     def ____parens____(self):
         """
@@ -76,7 +76,7 @@ class Id(Expr):
     def __repr__(self):
         return str(self.__idt__)
 
-class Field(Expr):
+class SubField(Expr):
     __is_single_term__ = True
 
     def __init__(self, base, attr):
