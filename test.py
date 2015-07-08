@@ -49,8 +49,9 @@ class Counter(Module):
 
   def __init__(self, max_val):
     self.max_val = max_val
-    cnt = Reg(UInt(int(math.ceil(math.log(max_val)))))
+    cnt = Reg(UInt(width=int(math.ceil(math.log(max_val)/math.log(2)))))
     fin = Reg(UInt(1))
+    Connect(self.io.finished, fin)
     if When(self.io.start):
       Connect(cnt, Lit(0))
       Connect(fin, Lit(0))

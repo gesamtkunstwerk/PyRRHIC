@@ -36,8 +36,6 @@ class BundleDec(BuilderType):
                                     type = type.__as_lower_type__(),
                                     orientation = orientation)
         return Bundle(fields)
-    def __init__(self):
-        builder.cur_context.updates += [BuilderTypeDec(self)]
 
 class BuilderStmt(Stmt):
     isDec = False
@@ -102,6 +100,7 @@ class Wire(BuilderDec):
 
     def traverse_exprs(self, func):
         self.idt = self.idt.__traverse__(func)
+        return self
 
     def elaborate(self):
         return WireDec(self.idt, self.btype.__as_lower_type__())
@@ -131,6 +130,7 @@ class Reg(BuilderDec):
         self.idt = self.idt.__traverse__(func)
         if self.onReset != None:
             self.onReset = self.onReset.__traverse__(func)
+        return self
 
     def elaborate(self):
         return RegDec(idt = self.idt, \
@@ -141,7 +141,7 @@ class BuilderTypeDec(BuilderStmt):
     def __init__(self, bundleDec):
         self.bundleDec = bundleDec
     def elaborate(self):
-        return TypeDec(self.bundleDec.__as_lower_type__())
+        return None
     def traverse_exprs(self, func):
         pass
 
@@ -153,6 +153,7 @@ class Connect(BuilderStmt):
     def traverse_exprs(self, func):
         self.lval = self.lval.__traverse__(func)
         self.rval = self.rval.__traverse__(func)
+        return self
     def elaborate(self):
         return ConnectStmt(self.lval, self.rval)
     def __repr__(self):
@@ -211,8 +212,11 @@ class Block(BuilderStmt):
         stmts = []
         for s in self.stmts:
               if s != None:
-                  stmts.append(s.traverse_exprs(func))
+                  res = s.traverse_exprs(func)
+                  stmts.append(res)
+
         self.stmts = stmts
+
         return self
 
 class BuilderWhen(BuilderStmt):
@@ -257,3 +261,4 @@ class BuilderInst(BuilderDec):
 
     def traverse_exprs(self, func):
         self.idt = self.idt.__traverse__(func)
+        return self

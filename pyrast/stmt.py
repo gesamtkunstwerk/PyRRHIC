@@ -1,3 +1,4 @@
+TAB = "  "
 
 class Stmt(object):
     """
@@ -5,14 +6,22 @@ class Stmt(object):
     """
     lineInfo = None
     __isBuilderStmt__ = False
-    
+
+    def firrtl_lines(self, indent=0):
+        """
+        Returns a list of strings containing the FIRRTL code for this statement
+        at the level of indentation specified by `indent`.
+        """
+        return [TAB*indent + str(self)]
+
 class WireDec(Stmt):
     def __init__(self, idt, type):
         self.idt = idt
         self.type = type
+
     def __str__(self):
         return "wire " + str(self.idt) + " : " + str(self.type)
-
+  
 class RegDec(Stmt):
     def __init__(self, idt, type, onReset = None):
         self.idt = idt
@@ -23,10 +32,6 @@ class RegDec(Stmt):
         if self.onReset != None:
             res += " [" + str(self.onReset)+ "]"
         return res
-        
-class TypeDec(Stmt):
-    def __init__(self, bundle):
-        self.bundle = bundle
         
 class ConnectStmt(Stmt):
     def __init__(self, lval, rval):
@@ -42,6 +47,20 @@ class WhenStmt(Stmt):
       self.if_stmts = if_stmts
       self.else_stmts = else_stmts
 
+  def firrtl_lines(self, indent=0):
+      lines = []
+      
+      lines.append(TAB*indent + "when " + str(self.cond) + ":")
+      for s in self.if_stmts:
+          lines += s.firrtl_lines(indent + 1)
+      if len(self.else_stmts) > 0:
+          lines.append(TAB*indent + "else:")
+          for s in self.else_stmts:
+              lines += s.firrtl_lines(indent + 1)
+
+      return lines
+            
+
 class ModuleDec(Stmt):
     def __init__(self, idt, io, stmts):
         self.idt = idt
@@ -49,10 +68,20 @@ class ModuleDec(Stmt):
         self.stmts = stmts
 
     def __str__(self):
-        res = "module "+str(self.idt)+":\n"
-        for stmt in self.stmts:
-          res += "  " + str(stmt) + "\n"
-        return res
+      lines = self.firrtl_lines()
+      res = ""
+      for l in lines:
+        res += l + "\n"
+      return res
+
+    def firrtl_lines(self, indent=0):
+        lines = []
+
+        lines.append(TAB*indent + "module " + str(self.idt) + ":")
+        for s in self.stmts:
+          lines += s.firrtl_lines(indent + 1)
+
+        return lines
 
 class ModuleInst(Stmt):
     def __init__(self, inst_idt, mod_idt):
