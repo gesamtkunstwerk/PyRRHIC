@@ -19,6 +19,9 @@ class Expr(object):
     def __getslice__(self, a, b):
         return Bits(self, a, b)
 
+    def __eq__(self, other):
+        return Eq(self, other)
+
     def __gt__(self, other):
         return Gt(self, other)
 
@@ -31,7 +34,7 @@ class Expr(object):
         else:
             return SubField(self, attr)
 
-    def ____parens____(self):
+    def __parens__(self):
         """
         Adds parentheses around the string representation of this expression
         if it is not a literal.  Used in larger composite expressions' string
@@ -89,6 +92,9 @@ class SubField(Expr):
 
     def __str__(self):
         return str(self.__base__) + "." + str(self.__attr__)
+
+    def __repr__(self):
+        return self.__str__()
       
 class BinExpr(Expr):
     def __init__(self, a, b):
@@ -146,6 +152,7 @@ class Bits(Expr):
         self.e = e
         self.msb = msb
         self.lsb = lsb
+
     def __str__(self):
         return self.e.__parens__() + "[" + str(self.msb) + ":" + str(self.lsb) + "]"
     def __traverse__(self, func):
@@ -192,8 +199,10 @@ class Mux(Expr):
         self.__a__ = a
         self.__b__ = b
         self.__sel__ = sel
+
     def __str__(self):
         return "Mux(" + str(self.__sel__) + ", " + str(self.__a__) + ", " + str(self.__b__) + ")"
+
     def __traverse__(self, func):
         self.__sel__ = self.__sel__.__traverse__(func)
         self.__a__ = self.__a__.__traverse__(func)
