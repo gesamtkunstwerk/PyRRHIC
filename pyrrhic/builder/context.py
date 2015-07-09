@@ -1,5 +1,5 @@
-from pyrast import *
 import inspect
+from pyrrhic.pyrast import Id
 
 BaseContextName = "__BASE_CONTEXT__"
 NewContextName = "__NEW_CONTEXT__"
@@ -20,8 +20,9 @@ class BuilderContext(object):
         PyRRHIC `Id`s.
         """
         rmap = self.renameMap()
+        from pyrrhic.builder import bdast
         def replace(expr):
-            if isinstance(expr, BuilderAST.BuilderId):
+            if isinstance(expr, bdast.BuilderId):
                 print "Renaming expression "+str(expr)
                 return rmap[expr]
             else:
@@ -55,8 +56,9 @@ class BuilderContext(object):
         this context.  Each value contains all `BuilderId`s using that name.
         """
         names = {}
+        from pyrrhic.builder import bdast
         for u in self.updates:
-            if isinstance(u, BuilderAST.BuilderDec):
+            if isinstance(u, bdast.BuilderDec):
                 print "\tCollected "+str(u.idt)
                 if u.idt.__name__.__idt__ in names:
                     names[u.idt.__name__.__idt__] += [u.idt]
@@ -71,80 +73,60 @@ context_stack = []
 
 # Tracks which `BuilderContext` corresponds to each module type based on the
 # string of each type's name.
-allClassContexts = {}
-allClassContexts[BaseContextName] = BuilderContext(BaseContextName)
+all_class_contexts = {}
+all_class_contexts[BaseContextName] = BuilderContext(BaseContextName)
 
 
 # Tracks which `BuilderInstanceContext` corresponds to each module instance
-# based on each instance's reference (that is, ``allInstanceContexts[m]``
+# based on each instance's reference (that is, ``all_instance_contexts[m]``
 # contains module `m`'s context.)
-allInstanceContexts = {}
+all_instance_contexts = {}
 
 # When an instance is elaborated, it gets added to this dict and removed
-# from `allInstanceContexts`.
-elaboratedInstances = {}
+# from `all_instance_contexts`.
+elaborated_instances = {}
 
 # When an instance is elaborated, its desired name is added to this dictionary.
 # If a name is already present, the instance is renamed to ahve a name that
 # ends with `_N` where `N` is the current number of modules with that name.
-instanceNames = {}
+instance_names = {}
 
 # Contains the nearest-enclosing conditional expression
 cond_stack = []
-
-def elaborate_all_instances():
-    global allInstanceContexts
-    global elaboratedInstances
-
-    # All instance contexts must be renamed before elaboration
-    # so that the new names are propagated into the PyRRHIC AST nodes.
-    for inst in allInstanceContexts:
-      allInstanceContexts[inst].rename()
-
-    for inst in allInstanceContexts:
-        ic = allInstanceContexts[inst]
-        ic.renameIds()
-        stmts = []
-        for u in ic.updates:
-            stmts += [u.elaborate()]
-        mdec = ModuleDec(ic.name, ic.module.io, stmts)
-        elaboratedInstances[inst] = mdec
-    allInstanceContexts = {}
-
 
 class BuilderInstanceContext(BuilderContext):
     """
     Contains all information pertaining to the elaboration of an instance
     of a PyRRHIC module.
     """
-    def __init__(self, instanceName, classContext, module):
+    def __init__(self, instance_name, class_context, module):
         """
         Parameters
         ----------
-        instanceName (str): name of the instance of this module
-        classContext (BuilderContext): context for the class that of which
+        instance_name (str): name of the instance of this module
+        class_context (BuilderContext): context for the class that of which
                                         this module is an instance.
         module (Module): instance associated with this context.
         """
-        self.instanceName = instanceName
-        self.className = classContext.name
-        self.classContext = classContext
-        self.instanceCount = classContext.instanceCount
-        self.name = classContext.name + "_INSTANCE"
-        self.updates = [] + classContext.updates
+        self.instance_name = instance_name
+        self.className = class_context.name
+        self.class_context = class_context
+        self.instanceCount = class_context.instanceCount
+        self.name = class_context.name + "_INSTANCE"
+        self.updates = [] + class_context.updates
 
     def rename(self):
         """
         Sets the name of this instance context to one that does not yet
-        appear in the global `instanceNames` dictionary.
+        appear in the global `instance_names` dictionary.
         """
         print "Module = "+str(self.module)
         desired_name = self.module.derived_name()
-        if desired_name in instanceNames:
-            count = len(instanceNames[desired_name])
+        if desired_name in instance_names:
+            count = len(instance_names[desired_name])
             self.name = "_" + desired_name + "_" + str(count)
-            instanceNames[desired_name].append(self)
+            instance_names[desired_name].append(self)
         else:
             self.name = desired_name
-            instanceNames[desired_name] = [self]
+            instance_names[desired_name] = [self]
         return self.name

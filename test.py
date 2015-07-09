@@ -1,6 +1,6 @@
-from pyrast import *
-from builder.BuilderAST import *
-import math
+from pyrrhic.builder.bdast import *
+from pyrrhic import Log2Up
+
 class ReadyValIO(BundleDec):
     ready = Reverse(UInt(1))
     valid = UInt(1)
@@ -49,7 +49,7 @@ class Counter(Module):
 
   def __init__(self, max_val):
     self.max_val = max_val
-    cnt = Reg(UInt(width=int(math.ceil(math.log(max_val)/math.log(2)))))
+    cnt = Reg(UInt(width=Log2Up(max_val)))
     fin = Reg(UInt(1))
     self.io.finished //= fin
     if When(self.io.start):

@@ -5,9 +5,8 @@ This is a superset of the PyRRHIC AST nodes (`pyrast/`) generated
 from the initial PyRRHIC Python input, and elaborated by the builder
 package into `pyrast`.
 """
-from pyrast import *
-import builder
-from builder import BuilderContext
+from pyrrhic.pyrast import *
+from pyrrhic.builder import context
 
 class BuilderType:
     __is_reversed__ = False
@@ -41,7 +40,7 @@ class BuilderStmt(Stmt):
     isDec = False
     def __init__(self):
         print "ADDING "+str(self)
-        builder.cur_context.updates += [self]
+        context.cur_context.updates += [self]
 
     # def traverse_exprs(self, func):
     #     """
@@ -63,8 +62,8 @@ class BuilderExpr(Expr):
 class BuilderId(BuilderExpr):
     def __init__(self, name):
         # Add this Id as a declaration to the current builder context
-        self.__n__ = builder.cur_context.instanceCount
-        builder.cur_context.instanceCount += 1
+        self.__n__ = context.cur_context.instanceCount
+        context.cur_context.instanceCount += 1
         self.__name__ = name
     def __repr__(self):
         return "{"+str(self.__name__)+" : "+(super(BuilderId, self).__repr__())+"}"
@@ -73,9 +72,9 @@ class BuilderId(BuilderExpr):
 class BuilderDec(BuilderStmt):
     def __init__(self, idt):
         self.idt = idt
-        name = builder.cur_context.name
+        name = context.cur_context.name
         print "ADDING CONTEXT UPDATE "+str(self)+" to "+name
-        builder.cur_context.updates += [self]
+        context.cur_context.updates += [self]
 
 
 
@@ -169,7 +168,7 @@ class ModuleBuilder(type):
         Creates this module's `ModuleDec` based on the state of the current
         builder context.
         """
-        self.__context__ = builder.cur_context
+        self.__context__ = context.cur_context
         self.__context__.className = name
         print "Set context for "+str(self)+" to "+str(self.__context__.className)
 
@@ -221,7 +220,7 @@ class Block(BuilderStmt):
 
 class BuilderWhen(BuilderStmt):
     """
-    Conditional assignment as represented in the builder.
+    Conditional assignment as represented in the context.
     """
     def __init__(self, cond, if_body, else_body):
         """

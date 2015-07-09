@@ -7,9 +7,9 @@ and transforming it appropriately.
 This module also includes utility functions for producing Python
 `ast.Node` objects.
 """
-import builder, pyrast
-from builder import instrument
-from builder.BuilderAST import *
+from pyrrhic import builder, pyrast
+from pyrrhic.builder import instrument
+from pyrrhic.builder.bdast import *
 import ast, inspect, copy
 
 def compile_pyrrhic(path):
@@ -264,7 +264,7 @@ class ModuleWalker(ast.NodeTransformer):
         rhs = copy.deepcopy(aug_assign.value)
         for term in [lhs, rhs]:
             term.ctx = ast.Load()
-        res = make_call(builder.BuilderAST.Connect.__name__, [lhs, rhs])
+        res = make_call(builder.bdast.Connect.__name__, [lhs, rhs])
         print "NEW WIRING : "+ast.dump(res)
         return res
 
@@ -282,7 +282,7 @@ class ModuleWalker(ast.NodeTransformer):
 
     def check_for_builder_dec(self, assign):
         """
-        Returns true iff `assign` os a wrapped `BuilderAST.BuilderDec` instance
+        Returns true iff `assign` os a wrapped `bdast.BuilderDec` instance
         of the form `x = Wire(type, onReset)`.
         """
         lval = assign.targets[0]
