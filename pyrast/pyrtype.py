@@ -11,11 +11,15 @@ class UInt(Type):
         self.width = width
 
     def __str__(self):
-        return "UInt("+str(self.width)+")"
+        return "UInt<"+str(self.width)+">"
 
 class SInt(Type):
     def __init__(self, width = None):
         self.width = width
+
+    def __str__(self):
+        return "SInt<"+str(self.width)+">"
+
         
 class Bundle(Type):
     def __init__(self, fields):
