@@ -68,6 +68,9 @@ class Vec(Type):
     
     def __as_lower_type__(self):
         return Vec(type = self.type.__as_lower_type__(), count = self.count)
+
+    def __str__(self):
+        return "Vec<"+str(self.count)+">("+str(self.type)+")"
     
     
     

@@ -45,9 +45,9 @@ class Counter(Module):
     start     = UInt(1)
     finished  = Reverse(UInt(1))
 
-  io = Wire(CounterIO())
 
   def __init__(self, max_val):
+    self.io = Wire(Counter.CounterIO())
     self.max_val = max_val
     cnt = Reg(UInt(width=Log2Up(max_val)))
     fin = Reg(UInt(1))
@@ -62,3 +62,17 @@ class Counter(Module):
 
 m = Module(OtherModule())
 c = Module(Counter(17))
+
+class BunchOfCounters(Module):
+  io = Wire(UInt(1))
+  def __init__(self, n, max_val):
+    self.counters = []
+    ios = Wire(Vec(Counter.CounterIO(), n))
+    for i in range(n):
+      m = Module(Counter(max_val))
+      self.counters.append(m)
+      ios[Lit(i)] //= self.counters[i].io
+
+bc = Module(BunchOfCounters(5, 16))
+    
+

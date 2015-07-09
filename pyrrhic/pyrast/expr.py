@@ -33,6 +33,9 @@ class Expr(object):
             return super(self, object).__getattr__(attr)
         else:
             return SubField(self, attr)
+  
+    def __getitem__(self, item):
+        return SubItem(self, item)
 
     def __parens__(self):
         """
@@ -95,7 +98,20 @@ class SubField(Expr):
 
     def __repr__(self):
         return self.__str__()
-      
+
+class SubItem(Expr):
+    def __init__(self, base, item):
+        self.__base__ = base
+        self.__item__ = item
+
+    def __traverse__(self, func):
+        self.__base__ = self.__base__.__traverse__(func)
+        self.__item__ = self.__item__.__traverse__(func)
+        return func(self)
+
+    def __repr__(self):
+        return str(self.__base__) + "[" + str(self.__item__) + "]"
+
 class BinExpr(Expr):
     def __init__(self, a, b):
         self.__a__ = a
