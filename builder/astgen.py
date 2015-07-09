@@ -252,6 +252,22 @@ class ModuleWalker(ast.NodeTransformer):
         res = [begin] + if_stmt.body + [else_call] + if_stmt.orelse + [end]
         return res
 
+    def instrument_wiring(self, aug_assign):
+        """
+        Transforms a wiring operator ``w1 //= w2`` into ``Connect(w1, w2)``.
+
+        Parameters
+        ----------
+        aug_assign (ast.AugAssign) A Python AST for ``//=``
+        """
+        lhs = copy.deepcopy(aug_assign.target)
+        rhs = copy.deepcopy(aug_assign.value)
+        for term in [lhs, rhs]:
+            term.ctx = ast.Load()
+        res = make_call(builder.BuilderAST.Connect.__name__, [lhs, rhs])
+        print "NEW WIRING : "+ast.dump(res)
+        return res
+
     def check_for_module_instance(self, assign):
         """
         Returns true iff `assign` is a wrapped instantiation of a module, of the
@@ -291,6 +307,11 @@ class ModuleWalker(ast.NodeTransformer):
             return self.instrument_instance(node)
         if self.check_for_builder_dec(node):
             return self.instrument_builder_dec(node)
+        return node
+
+    def visit_AugAssign(self, node):
+        if isinstance(node.op, ast.FloorDiv):
+            return self.instrument_wiring(node)
         return node
 
     def visit_ClassDef(self, node):
