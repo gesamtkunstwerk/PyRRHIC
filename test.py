@@ -73,5 +73,13 @@ class BunchOfCounters(Module):
       ios[Lit(i)] //= self.counters[i].io
 
 bc = Module(BunchOfCounters(5, 16))
-    
+
+class BunchOfRegs(Module):
+  io = Wire(UInt(1))
+  def __init__(self):
+    self.regs = []
+    for i in range(10):
+      self.regs.append(Reg(UInt(width=i)))
+
+br = Module(BunchOfRegs())
 

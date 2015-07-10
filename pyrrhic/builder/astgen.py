@@ -34,8 +34,8 @@ def name_id(id, store=False):
     else:
         return ast.Name(id = id, ctx=ast.Load())
 
-def make_call(func, args=[]):
-    return ast.Expr(ast.Call(func=name_id(func), args=args, keywords=[]))
+def make_call(func, args=[], keywords=[]):
+    return ast.Expr(ast.Call(func=name_id(func), args=args, keywords=keywords))
 
 def id_attr(ids):
     res = name_id(ids[0])
@@ -43,13 +43,13 @@ def id_attr(ids):
         res = ast.Attribute(res, i, ast.Load())
     return res
 
-def inst_call(func, args=[]):
+def inst_call(func, args=[], keywords=[]):
     """
     Returns an `ast.Call` to `func` where `func` is replaced by
     `builder.instrument.func`.
     """
     func = id_attr(["builder", "instrument", func])
-    return make_call(func, args)
+    return make_call(func, args, keywords)
 
 
 def assign_id(ids, rval):
@@ -89,6 +89,15 @@ def compare_attributes(a1, a2):
     else:
         return a1 == a2
 
+def get_keyword(call, keyword):
+    """
+    Returns the value of a keyword argument to an `ast.Call` node, or
+    `None` if none was specified.
+    """
+    for k in call.keywords:
+        if k.arg == keyword:
+          return k.value
+    return None
 
 class ModuleAssignLV(object):
     """
@@ -283,23 +292,48 @@ class ModuleWalker(ast.NodeTransformer):
         return assign
 
 
-    def instrument_builder_dec(self, assign):
+    def instrument_explicit_dec(self, assign):
         """
         Translates a circuit element (wire or register) declaration of the form
-        ``w = Wire(type)`` into an identifier assignment and a ``Wire()`` call:
-        ``w = BuilderId("w")`` and ``Wire(type, idt="w")``
-        """
-        call = assign.value
-        func = call.func.id
-        lvid = ModuleAssignLV(assign)
-        elemName = ast.Str(s = lvid.lvstr)
 
-        pid = make_call(pyrast.Id.__name__, [elemName]).value
-        bid = make_call(BuilderId.__name__, [pid]).value
-        newAssign = ast.Assign([lvid.new_id(store = True)], bid)
-        newCall = copy.deepcopy(call)
-        newCall.keywords.append(ast.keyword(arg="idt", value=lvid.new_id()))
-        return [newAssign, ast.Expr(newCall)]
+        >>> w = builder.instrument.make_builder_dec(type, False)
+
+        into
+
+        >>> w = builder.instrument.make_builder_dec(type, False, name = "w")
+
+        """
+        lval = ModuleAssignLV(assign)
+        name = ast.keyword("name", ast.Str(lval.lvstr))
+        call = assign.value
+        call.keywords.append(name)
+        return assign
+
+    def instrument_implicit_dec(self, call):
+        """
+        Translated an implicit circuit element (wire/register) declaration of
+        the form ``Wire(type)`` into an instrumented declaration that returns
+        a `BuilderId`:
+
+        >>> builder.instrument.make_builder_dec(type, False)
+        
+        or, in the case of a register:
+
+        >>> builder.instrument.make_builder_dec(type, True, on_reset = ...)
+        """
+        if compare_attributes(call.func, name_id("Reg")):
+            is_reg = name_id("True")
+        else:
+            is_reg = name_id("False")
+
+        on_reset = get_keyword(call, "onReset")
+        if on_reset == None:
+            on_reset = name_id("None")
+        keywords = [ast.keyword("on_reset", on_reset)]
+        btype = call.args[0]
+        fname = "make_builder_dec"
+        icall = inst_call(fname, [btype, is_reg], keywords = keywords).value
+        return icall
 
     def instrument_when(self, if_stmt):
         """
@@ -359,17 +393,25 @@ class ModuleWalker(ast.NodeTransformer):
             return True
         return False
 
-    def check_for_builder_dec(self, assign):
+    def check_for_explicit_dec(self, assign):
         """
-        Returns true iff `assign` os a wrapped `bdast.BuilderDec` instance
-        of the form `x = Wire(type, onReset)`.
+        Returns `True` iff `assign` is an explicit circuit element declaration:
+
+        >>> w = builder.instrument.make_builder_dec(type, ...)
         """
-        lval = assign.targets[0]
         if isinstance(assign.value, ast.Call):
-            call = assign.value
-            if call.func.id in [Wire.__name__, Reg.__name__]:
+            fname = id_attr(["builder", "instrument", "make_builder_dec"])
+            if compare_attributes(assign.value.func, fname):
                 return True
         return False
+
+    def check_for_implicit_dec(self, call):
+        """
+        Returns `True` iff `call` is a wire or register declaration.
+        """
+        dec_funcs = [Wire.__name__, Reg.__name__]
+        if isinstance(call.func, ast.Name) and call.func.id in dec_funcs:
+            return True
 
     def check_for_when(self, if_stmt):
         """
@@ -385,8 +427,8 @@ class ModuleWalker(ast.NodeTransformer):
         node = self.generic_visit(node)
         if self.check_for_explicit_module_instance(node):
             return self.instrument_explicit_instance(node)
-        if self.check_for_builder_dec(node):
-            return self.instrument_builder_dec(node)
+        if self.check_for_explicit_dec(node):
+            return self.instrument_explicit_dec(node)
         return node
 
     def visit_AugAssign(self, node):
@@ -411,4 +453,6 @@ class ModuleWalker(ast.NodeTransformer):
         node = self.generic_visit(node)
         if self.check_for_module_instance(node):
             return self.instrument_implicit_instance(node)
+        if self.check_for_implicit_dec(node):
+            return self.instrument_implicit_dec(node)
         return node

@@ -7,7 +7,7 @@ the names of modules, wires, etc.
 """
 from pyrrhic.pyrast.expr import Id
 from pyrrhic.builder import context as ctx
-from pyrrhic.builder.bdast import BuilderWhen, Block, BuilderId, BuilderInst
+from pyrrhic.builder.bdast import *
 
 def module_begin(name):
     """
@@ -81,7 +81,20 @@ def make_builder_instance(instance, class_name, inst_name=None):
     """
     id = ctx.cur_context.make_builder_id(inst_name)
     binst = BuilderInst(id, instance)
-    #ctx.all_instance_contexts[instance].instance_name = inst_name
+    return id
+
+def make_builder_dec(btype, is_reg, name=None, on_reset=None):
+    """
+    Returns a new `BuilderId` referring to `dec` and updates the current context
+    to contain a new `Wire` or `Reg`.
+    """
+    id = ctx.cur_context.make_builder_id(name)
+
+    if is_reg:
+      Reg(btype, idt = id, onReset = on_reset)
+    else:
+      Wire(btype, idt = id)
+
     return id
 
 def when_begin(cond_expr):
