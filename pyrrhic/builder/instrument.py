@@ -79,7 +79,10 @@ def make_builder_instance(instance, class_name, inst_name=None):
 
     class_name (str): The string name of the class instantiated
     """
-    id = ctx.cur_context.make_builder_id(inst_name)
+    if inst_name == None:
+        id = ctx.cur_context.make_builder_id(class_name)
+    else:
+        id = ctx.cur_context.make_builder_id(inst_name)
     binst = BuilderInst(id, instance)
     return id
 
