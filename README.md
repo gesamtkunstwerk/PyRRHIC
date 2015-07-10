@@ -24,23 +24,24 @@ Just for the sake of example, consider the following code from `test.py`:
 ```python
 class Counter(Module):
   class CounterIO(BundleDec):
-  start     = UInt(1)
-  finished  = Reverse(UInt(1))
+    start     = UInt(1)
+    finished  = Reverse(UInt(1))
 
 
   def __init__(self, max_val):
     self.io = Wire(Counter.CounterIO())
-  self.max_val = max_val
-  cnt = Reg(UInt(width=Log2Up(max_val)))
+    self.max_val = max_val
+    cnt = Reg(UInt(width=Log2Up(max_val)))
     fin = Reg(UInt(1))
+
     self.io.finished //= fin
     if When(self.io.start):
       cnt //= Lit(0)
       fin //= Lit(0)
-      elif When(cnt == Lit(max_val)):
-        fin //= Lit(1)
-        elif When(~fin):
-          cnt //= (cnt + Lit(1))
+    elif When(cnt == Lit(max_val)):
+      fin //= Lit(1)
+    elif When(~fin):
+      cnt //= (cnt + Lit(1))
 
 c = Module(Counter(17))
 ```
@@ -69,6 +70,7 @@ module Counter:
 PyRRHIC to (Pseudo-)FIRRTL compilation consists of these phases:
 
 1. Instrumentation / AST Generation
+
   - This phase uses Python's own AST library to parse the PyRRHIC input,
     walk the AST, and instrument PyRRHIC-related constructs with calls into
     the builder (see below).
@@ -82,14 +84,18 @@ PyRRHIC to (Pseudo-)FIRRTL compilation consists of these phases:
   the current *context*, which is associated with some module or instance.
   There is a context stack in `builder/context.py` which is modified
   whenever entering or exiting a new module or instance definition.
+
 3. Translation
+
   - After the user's (instrumented) Python code has executed, the set of
   contexts created in the builder is traversed, and each context's set 
   of updates is transformed into a list of FIRRTL circuit element 
   declarations.  A pre-processing step converts all temporary identifiers
   (`BuilderId` objects) into real identifiers and resolves namespace
   collisions by renaming in the case of conflicts.
+
 4. *TODO* Type Checking and Error Reporting
+  
   - Somebody needs to do this..
 
 ## TODOs
@@ -100,16 +106,20 @@ so it obviously far from correct or complete.  Here are some of the bigger
 known issues:
 
 1. Module IOs don't follow the current FIRRTL spec.
+  
   - We currently declare an explicit `io` field in each module, whereas
   FIRRTL requires that explicit `input` and `output` statements be made
   at the beginning of a module's body.
+
 2. There are no error messages.
+  
   - Well, there's also no type checking, or syntactic checking.  
   What's needed
   is a general strategy for propagating error messages up from the inside
   to the user.  The line number information from the original PyRRHIC
   Python source file is available during the instrumentation phase, and
   needs to be added into the builder AST.
+  
   - There are also PyRRHIC-specific errors that need to be detected. For
   example, if a module instantiation is not wrapped in `Module()`, this
   should be caught at elaboration time, and reported.  Modules also
@@ -117,8 +127,12 @@ known issues:
   another class that derives from `Module`.  This is because the 
   instrumentation phase needs to see this relationship syntactically, 
   without access to the actual type hierarchy.
+
 3. No memories yet.  Need to `Mem` and `accessor` types.
+
 4. Various FIRRTL `primop`s are missing -- look at the AST files for details
+
 5. We need to coalesce module instances with identical bodies. 
+
   - Currently, every single module instantiation results in a unique module
   type declaration, which is not ideal.
