@@ -66,6 +66,21 @@ class BuilderContext(object):
                     names[u.idt.__name__.__idt__] = [u.idt]
         return names
 
+    def make_builder_id(self, name):
+        """
+        Returns a new `bdast.BuilderId` with name `name`, or creates
+        a new temporary name if `name` is `None`.
+
+        name (str): String name from which to create an identifier
+        """
+        from pyrrhic.builder.bdast import BuilderId
+        if name == None:
+            name_str = "_"+self.name+"_tmp_"
+            id = BuilderId(Id(name_str))
+        else:
+            id = BuilderId(Id(name))
+        return id
+
 # Always contains the context in which to log the next update
 cur_context = BuilderContext(BaseContextName)
 context_stack = []

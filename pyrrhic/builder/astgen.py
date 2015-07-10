@@ -65,6 +65,30 @@ def assign_id(ids, rval):
         targets = [name_id(ids)]
     return ast.Assign(targets=targets, value=rval)
 
+def compare_attributes(a1, a2):
+    """
+    Returns `True` iff `a1` and `a2` are identical nested `ast.Attribute`
+    nodes.  Thus:
+
+    >>> a1 = id_attr(["a", "b", "c"])
+    >>> a2 = id_attr(["a", "b", "c"])
+    >>> a1 == a2
+      False
+    >>> compare_attributes(a1, a2)
+      True
+    """
+    if isinstance(a1, ast.Attribute) and isinstance(a2, ast.Attribute):
+        if a1.attr != a2.attr:
+            return False
+        else:
+            return compare_attributes(a1.value, a2.value)
+    elif isinstance(a1, ast.Attribute) or isinstance(a2, ast.Attribute):
+        return False
+    elif isinstance(a1, ast.Name) and isinstance(a2, ast.Name):
+        return a1.id == a2.id
+    else:
+        return a1 == a2
+
 
 class ModuleAssignLV(object):
     """
@@ -191,20 +215,19 @@ class ModuleWalker(ast.NodeTransformer):
 
         module (ast.ClassDef): An AST node for defining a module.
         """
-        new = self.generic_visit(module)
         name = [ast.Str(s=module.name)]
-        new.body.insert(0, inst_call("module_begin", name))
-        init = self.find_init(new.body)
+        module.body.insert(0, inst_call("module_begin", name))
+        init = self.find_init(module.body)
 
         if init != None:
           self.instrument_module_init(init, module.name)
         else:
           init = self.make_instrumented_init(module.name)
-          new.body.append(init)
+          module.body.append(init)
 
-        new.body.append(inst_call(instrument.module_end.__name__, name))
+        module.body.append(inst_call(instrument.module_end.__name__, name))
 
-        return new
+        return module
 
     def instrument_module_init(self, function_dec, class_name):
         """
@@ -223,27 +246,41 @@ class ModuleWalker(ast.NodeTransformer):
         return function_dec
 
 
-    def instrument_instance(self, assign):
+    def instrument_implicit_instance(self, call):
         """
-        Translates a module instantiation (``m = Module(M(...))``) into
-        an instrumented instantiation :
+        Translates a call to `Module(M(...))` into an instrumented module
+        instantiation:
+        
+        >>> builder.instrument.make_builder_instance(M(...), "M")
+        """
+        modClassInit = call.args[0] # Also `ast.Call` type
+        modClassName = ast.Str(s = modClassInit.func.id)
+        args = [modClassInit, modClassName]
+        icall = inst_call(instrument.make_builder_instance.__name__, args).value
+        return icall
+         
+
+
+    def instrument_explicit_instance(self, assign):
+        """
+        Translates an assignment from an instrumented module instance
+        into an explicitly named one:
        
-        >>> m = instrument.make_builder_instance("m", M(...), "M")
+        >>> m = builder.instrument.make_builder_instance(M(...), "M")
+
+        becomes
+
+        >>> m = builder.instrument.make_builder_instance(M(...), "M", "m")
 
         Parameters
         ----------
         assign (ast.Assign): An AST node instantiating a module
         """
-        assign = self.generic_visit(assign)
         call = assign.value         # Should be `ast.Call` type
         lval = ModuleAssignLV(assign)
         instName = ast.Str(s = lval.lvstr)
-        modClassInit = call.args[0] # Also `ast.Call` type
-        modClassName = ast.Str(s = modClassInit.func.id)
-        args = [instName, modClassInit, modClassName]
-        icall = inst_call(instrument.make_builder_instance.__name__, args).value
-        res = assign_id(lval.new_id(store=True), icall)
-        return res
+        call.args.append(instName)
+        return assign
 
 
     def instrument_builder_dec(self, assign):
@@ -252,7 +289,6 @@ class ModuleWalker(ast.NodeTransformer):
         ``w = Wire(type)`` into an identifier assignment and a ``Wire()`` call:
         ``w = BuilderId("w")`` and ``Wire(type, idt="w")``
         """
-        assign = self.generic_visit(assign)
         call = assign.value
         func = call.func.id
         lvid = ModuleAssignLV(assign)
@@ -272,13 +308,12 @@ class ModuleWalker(ast.NodeTransformer):
 
         More specifically, ``if When(cond): [ifbody] else: [elsebody]`` becomes:
 
-        >>> builder.when_begin(cond)
+        >>> builder.instrument.when_begin(cond)
         >>> ifbody
-        >>> builder.when_else()
+        >>> builder.instrument.when_else()
         >>> elsebody
-        >>> builder.when_end()
+        >>> builder.instrument.when_end()
         """
-        if_stmt = self.generic_visit(if_stmt)
         cond = if_stmt.test.args[0]
         
         begin = inst_call(instrument.when_begin.__name__, [cond])
@@ -303,16 +338,25 @@ class ModuleWalker(ast.NodeTransformer):
         res = make_call(builder.bdast.Connect.__name__, [lhs, rhs])
         return res
 
-    def check_for_module_instance(self, assign):
+    def check_for_explicit_module_instance(self, assign):
         """
         Returns true iff `assign` is a wrapped instantiation of a module, of the
-        form ``m = Module(M(...))``
+        form ``m = builder.instrument.make_builder_instance(M(...))``
         """
         lval = assign.targets[0]    # Should be an `ast.Name`
+        fname = id_attr(["builder", "instrument", "make_builder_instance"])
         if isinstance(assign.value, ast.Call):
             call = assign.value
-            if call.func.id == "Module":
+            if compare_attributes(call.func, fname):
                 return True
+        return False
+
+    def check_for_module_instance(self, call):
+        """
+        Returns true iff `call` is a call to `Module(..)`
+        """
+        if isinstance(call.func, ast.Name) and call.func.id == "Module":
+            return True
         return False
 
     def check_for_builder_dec(self, assign):
@@ -338,23 +382,33 @@ class ModuleWalker(ast.NodeTransformer):
         return False
 
     def visit_Assign(self, node):
-        if self.check_for_module_instance(node):
-            return self.instrument_instance(node)
+        node = self.generic_visit(node)
+        if self.check_for_explicit_module_instance(node):
+            return self.instrument_explicit_instance(node)
         if self.check_for_builder_dec(node):
             return self.instrument_builder_dec(node)
         return node
 
     def visit_AugAssign(self, node):
+        node = self.generic_visit(node)
         if isinstance(node.op, ast.FloorDiv):
             return self.instrument_wiring(node)
         return node
 
     def visit_ClassDef(self, node):
+        node = self.generic_visit(node)
         if self.check_for_module(node):
             return self.instrument_module(node)
         return node
 
     def visit_If(self, node):
+        node = self.generic_visit(node)
         if self.check_for_when(node):
-          return self.instrument_when(node)
+            return self.instrument_when(node)
+        return node
+
+    def visit_Call(self, node):
+        node = self.generic_visit(node)
+        if self.check_for_module_instance(node):
+            return self.instrument_implicit_instance(node)
         return node

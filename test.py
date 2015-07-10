@@ -69,8 +69,7 @@ class BunchOfCounters(Module):
     self.counters = []
     ios = Wire(Vec(Counter.CounterIO(), n))
     for i in range(n):
-      m = Module(Counter(max_val))
-      self.counters.append(m)
+      self.counters.append(Module(Counter(max_val)))
       ios[Lit(i)] //= self.counters[i].io
 
 bc = Module(BunchOfCounters(5, 16))

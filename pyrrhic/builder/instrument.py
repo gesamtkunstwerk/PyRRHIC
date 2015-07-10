@@ -65,7 +65,7 @@ def module_inst_end(module):
     ctx.all_instance_contexts[module] = ctx.cur_context
     ctx.cur_context = ctx.context_stack.pop()
 
-def make_builder_instance(inst_name, instance, class_name):
+def make_builder_instance(instance, class_name, inst_name=None):
     """
     Returns a new `BuilderId` referring to `instance` and  updates the current
     context to contain a new `BuilderInstance`.
@@ -79,9 +79,9 @@ def make_builder_instance(inst_name, instance, class_name):
 
     class_name (str): The string name of the class instantiated
     """
-    id = BuilderId(Id(inst_name))
+    id = ctx.cur_context.make_builder_id(inst_name)
     binst = BuilderInst(id, instance)
-    ctx.all_instance_contexts[instance].instance_name = inst_name
+    #ctx.all_instance_contexts[instance].instance_name = inst_name
     return id
 
 def when_begin(cond_expr):
