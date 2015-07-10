@@ -135,7 +135,6 @@ class ModuleWalker(ast.NodeTransformer):
         a new `BuilderDec` statement after it.
     """
 
-
     def check_for_module(self, node):
         """
         Returns `True` iff `node` is a PyRRHIC module definition.
@@ -148,6 +147,43 @@ class ModuleWalker(ast.NodeTransformer):
                 isModule = True
         return isModule
 
+    def find_init(self, class_body):
+        """ 
+        Finds the `__init__()` method in the body of an `ast.ClassDef` node
+        and returns a reference to it.
+        """
+        def find(stmts):
+          for node in stmts:
+            if isinstance(node, ast.FunctionDef) and node.name == "__init__":
+              return node
+            if isinstance(node, list):
+              init = find(node)
+              if init != None:
+                return init
+          return None
+        return find(class_body)
+
+    def make_instrumented_init(self, class_name):
+        """
+        Returns a new `ast.FunctionDef` node that defines an instrumented
+        `__init__()` method for a module class.
+        """
+        args = arguments(                                       \
+            args      = [ast.Name(id='self', ctx=ast.Param())], \
+            vararg    = None,                                   \
+            kwarg     = None,                                   \
+            defaults  = [])
+
+        body = []
+
+        fdef = ast.FunctionDef( \
+            name = '__init__',  \
+            args = args,        \
+            body = body)
+
+        self.instrument_init(fdef, class_name)
+
+        return fdef
 
     def instrument_module(self, module):
         """
@@ -158,19 +194,41 @@ class ModuleWalker(ast.NodeTransformer):
         new = self.generic_visit(module)
         name = [ast.Str(s=module.name)]
         new.body.insert(0, inst_call("module_begin", name))
+        init = self.find_init(new.body)
+
+        if init != None:
+          self.instrument_module_init(init, module.name)
+        else:
+          init = self.make_instrumented_init(module.name)
+          new.body.append(init)
+
         new.body.append(inst_call(instrument.module_end.__name__, name))
+
         return new
+
+    def instrument_module_init(self, function_dec, class_name):
+        """
+        Adds instrumentation calls to the beginning and end of the body of
+        a `Module` class' `__init__` method.
+
+        Specifically, `instrument.module_inst_begin("class_name")` and
+        `instrument.module_inst_end(self)` are inserted.
+        """
+        beginFunc = instrument.module_inst_begin.__name__
+        endFunc = instrument.module_inst_end.__name__
+        begin = inst_call(beginFunc, [ast.Str(class_name)])
+        end = inst_call(endFunc, [name_id("self")])
+        function_dec.body.insert(0, begin)
+        function_dec.body.append(end)
+        return function_dec
+
 
     def instrument_instance(self, assign):
         """
         Translates a module instantiation (``m = Module(M(...))``) into
         an instrumented instantiation :
-        
-        >>> instrument.module_inst_begin()
-        >>> m = BuilderId("m")
-        >>> __m_MODULE__ = M(...)
-        >>> instrument.module_inst_end(__m_MODULE__)
-        >>> BuilderInst(m, __m_MODULE__)
+       
+        >>> m = instrument.make_builder_instance("m", M(...), "M")
 
         Parameters
         ----------
@@ -182,30 +240,11 @@ class ModuleWalker(ast.NodeTransformer):
         instName = ast.Str(s = lval.lvstr)
         modClassInit = call.args[0] # Also `ast.Call` type
         modClassName = ast.Str(s = modClassInit.func.id)
-
-        # Prologue and epilogue
-        beginFunc = instrument.module_inst_begin.__name__
-        endFunc = instrument.module_inst_end.__name__
-        begin = inst_call(beginFunc, [instName, modClassName])
-        end = inst_call(endFunc, [lval.new_shadow_id()])
-
-
-        # Turn assignment `m = Module(M(...))` into a `BuilderId` declaration
-        # and a `_MODULE__` declaration
-        pid = make_call(pyrast.Id.__name__, [instName]).value
-        bid = make_call(BuilderId.__name__, [pid]).value
-        idAssign = ast.Assign([lval.new_id(store = True)], bid)
-        modAssign = ast.Assign([lval.new_shadow_id(store = True)], modClassInit)
-  
-        # Make a `BuilderInst` call to generate a context update
-        blval = lval.new_id(store = False)
-        binst_args = [blval, lval.new_shadow_id()]
-        binst = make_call(BuilderInst.__name__, binst_args)
-
-        res = [begin, idAssign, modAssign, end, binst]
-        for i in res:
-          print ast.dump(i)
+        args = [instName, modClassInit, modClassName]
+        icall = inst_call(instrument.make_builder_instance.__name__, args).value
+        res = assign_id(lval.new_id(store=True), icall)
         return res
+
 
     def instrument_builder_dec(self, assign):
         """
@@ -224,8 +263,6 @@ class ModuleWalker(ast.NodeTransformer):
         newAssign = ast.Assign([lvid.new_id(store = True)], bid)
         newCall = copy.deepcopy(call)
         newCall.keywords.append(ast.keyword(arg="idt", value=lvid.new_id()))
-        print "new assign: "+str(ast.dump(newAssign))
-        print "new call: "+str(ast.dump(newCall))
         return [newAssign, ast.Expr(newCall)]
 
     def instrument_when(self, if_stmt):
@@ -243,7 +280,6 @@ class ModuleWalker(ast.NodeTransformer):
         """
         if_stmt = self.generic_visit(if_stmt)
         cond = if_stmt.test.args[0]
-        print "COND: "+str(cond)
         
         begin = inst_call(instrument.when_begin.__name__, [cond])
         else_call = inst_call(instrument.when_else.__name__, [])
@@ -265,7 +301,6 @@ class ModuleWalker(ast.NodeTransformer):
         for term in [lhs, rhs]:
             term.ctx = ast.Load()
         res = make_call(builder.bdast.Connect.__name__, [lhs, rhs])
-        print "NEW WIRING : "+ast.dump(res)
         return res
 
     def check_for_module_instance(self, assign):

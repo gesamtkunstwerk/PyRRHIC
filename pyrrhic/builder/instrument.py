@@ -5,8 +5,9 @@ Contains functions to be injected by the builder into Python ASTs prior to
 elaboration.  These update the current context with information about
 the names of modules, wires, etc.
 """
+from pyrrhic.pyrast.expr import Id
 from pyrrhic.builder import context as ctx
-from pyrrhic.builder.bdast import BuilderWhen, Block
+from pyrrhic.builder.bdast import BuilderWhen, Block, BuilderId, BuilderInst
 
 def module_begin(name):
     """
@@ -28,23 +29,25 @@ def module_end(name):
     ctx.cur_context = ctx.context_stack.pop()
 
 
-def module_inst_begin(instance_name, class_name):
+def module_inst_begin(class_name):
     """
-    When called just before a `Module`'s' ``__init__()`` method, this creates a
-    new context for that module and adds it to the instance stack.
+    When called at the beginning of a `Module`'s' ``__init__()`` method,
+    this creates a new context for that module and adds it to the instance 
+    stack.
 
     Parameters
     ----------
-
-    instance_name (str): The (string) name of the instance being created
-
     class_name (str): The (string) name of the class of module being instantiated
     """
     class_context = ctx.all_class_contexts[class_name]
+
+    # `instance_name` is set afterwards by other instrumentation code,
+    # and `module` is set by `module_inst_end`
     context = ctx.BuilderInstanceContext( \
-        instance_name = instance_name,  \
-        class_context = class_context,  \
-        module = None) # Will be set afterwards by `module_init_end`
+        instance_name = None,             \
+        class_context = class_context,    \
+        module        = None) 
+
     ctx.context_stack.append(ctx.cur_context)
     ctx.cur_context = context
 
@@ -61,7 +64,26 @@ def module_inst_end(module):
     module.__context__ = ctx.cur_context
     ctx.all_instance_contexts[module] = ctx.cur_context
     ctx.cur_context = ctx.context_stack.pop()
-  
+
+def make_builder_instance(inst_name, instance, class_name):
+    """
+    Returns a new `BuilderId` referring to `instance` and  updates the current
+    context to contain a new `BuilderInstance`.
+
+    Parmeters
+    ---------
+    inst_name (str): The actual string name of the instance, or `None` if 
+                      this is an impicit instance
+
+    instance (Module): The module instance just created
+
+    class_name (str): The string name of the class instantiated
+    """
+    id = BuilderId(Id(inst_name))
+    binst = BuilderInst(id, instance)
+    ctx.all_instance_contexts[instance].instance_name = inst_name
+    return id
+
 def when_begin(cond_expr):
     """
     Pushes conditional `cond_expr` onto the current when condition stack in 
